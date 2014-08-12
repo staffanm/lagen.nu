@@ -1,0 +1,38 @@
+--- data/sfs/intermediate/1979/1152.txt	2010-01-03 19:36:35.116000000 +0100
++++ data/sfs/intermediate/1979/1152-mod.txt	2010-01-03 19:36:27.073600000 +0100
+@@ -204,12 +204,14 @@ Justeringar för tabellformattering i 2:2
+                 lagring av bränsle och annan byggnad för produktionen utgör
+                 kraftverksbyggnad.
+ 
+-Industribyggnad Byggnad som är inrättad för industriell verksamhet och som
++Industri-
++byggnad         Byggnad som är inrättad för industriell verksamhet och som
+                 inte utgör kraftverksbyggnad.
+ 
+ Specialbyggnad  Med specialbyggnad avses
+ 
+-                Försvarsbyggnad Byggnad som används för försvarsändamål eller
++                Försvars-
++                byggnad         Byggnad som används för försvarsändamål eller
+                                 ekonomisk försvarsberedskap, om byggnaden
+                                 inte är en fristående industriellanläggning.
+                                 Även mässbyggnad ska utgöra försvarsbyggnad.
+@@ -249,7 +251,7 @@
+                                 inte anläggning där verksamheten i allt
+                                 väsentligt utgör ett led i en industriell
+                                 process.
+-
++ 
+                 Vårdbyggnad     Byggnad som används för sjukvård,
+                                 missbrukarvård, omsorger om barn och ungdom,
+                                 kriminalvård, åldringsvård eller omsorger om
+@@ -289,8 +291,7 @@
+                                 Krematorium och annan byggnad som används för
+                                 begravningsverksamhet.
+ 
+-                Allmän byggnad  Byggnad som tillhör staten, kommun eller
+-annan
++                Allmän byggnad  Byggnad som tillhör staten, kommun eller annan
+                                 menighet och som används för allmän styrelse,
+                                 förvaltning, rättsvård, ordning eller säkerhet
+                                 samt fritidsgård och byggnad med likartad
