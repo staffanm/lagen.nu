@@ -1,0 +1,11 @@
+--- data/dv/intermediate/ooxml/HDO/T3258-09.xml	1980-01-01 00:00:00.000000000 +0100
++++ tmp/tmpRadTzp	2011-08-14 20:19:14.000000000 +0200
+@@ -173,7 +173,7 @@ Korrigerad datumformattering
+         <w:tc>
+           <w:p>
+             <w:r>
+-              <w:t>2010-11 30</w:t>
++              <w:t>2010-11-30</w:t>
+             </w:r>
+           </w:p>
+         </w:tc>

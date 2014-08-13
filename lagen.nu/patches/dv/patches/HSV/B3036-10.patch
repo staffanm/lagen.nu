@@ -1,0 +1,11 @@
+--- data/dv/intermediate/ooxml/HSV/B3036-10.xml	1980-01-01 00:00:00.000000000 +0100
++++ tmp/tmphBcaQu	2011-03-23 09:54:58.000000000 +0100
+@@ -29,7 +29,7 @@ Korrigerad formattering av rõttsfallets beteckning
+               <w:t>RH </w:t>
+             </w:r>
+             <w:r>
+-              <w:t>2010 :</w:t>
++              <w:t>2010:</w:t>
+             </w:r>
+             <w:r>
+               <w:t>180</w:t>

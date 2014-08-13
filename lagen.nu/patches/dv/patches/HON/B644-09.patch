@@ -1,0 +1,24 @@
+--- data/dv/intermediate/docbook/HON/B644-09.xml	2010-11-09 10:32:20.286862115 -0800
++++ tmp/tmpHHi0yd	2010-11-09 10:31:00.466862000 -0800
+@@ -91,9 +91,7 @@ Lagrum var angivet under fel rubrik
+ 
+        <entry>Lagrum:</entry>
+ 
+-       <entry>
+-     
+-       </entry>
++       <entry>8 kap. 8 §, 11 §, 12 § och 13 § utlänningslagen (2005:716)</entry>
+ 
+       </row>
+ 
+@@ -101,7 +99,9 @@
+ 
+        <entry>Rättsfall:</entry>
+ 
+-       <entry>8 kap. 8 §, 11 §, 12 § och 13 § utlänningslagen (2005:716)</entry>
++       <entry>
++
++       </entry>
+ 
+       </row>
+ 

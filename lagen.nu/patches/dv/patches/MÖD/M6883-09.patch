@@ -1,0 +1,13 @@
+--- data/dv/intermediate/ooxml/MÖD/M6883-09.xml	1980-01-01 00:00:00.000000000 -0800
++++ tmp/tmplrWXJ2	2010-11-09 11:21:17.636861000 -0800
+@@ -19,9 +20,6 @@ Korrigerad referatsbeteckning
+         </w:tc>
+         <w:tc>
+           <w:p>
+-            <w:r>
+-              <w:t>-</w:t>
+-            </w:r>
+             <w:r>
+               <w:t>MÖD 2010:32</w:t>
+             </w:r>
+	    

@@ -1,0 +1,322 @@
+--- data/dv/intermediate/docbook/ADO/2009-30.xml	2010-11-08 15:56:23.000000000 +0100
++++ tmp/tmpHjuXM_	2010-11-08 15:56:18.000000000 +0100
+@@ -215,28 +215,28 @@ Anonymisering
+ 
+        <entry>Parter:
+ 
+-M.L.; Staten genom Försäkringskassan
++A; Staten genom Försäkringskassan
+ 
+ Nr 30
+ 
+-M.L. i Halmstad
++A
+ 
+ mot
+ 
+-Staten genom Försäkringskassan i Halmstad.
++Staten genom Försäkringskassan.
+ 
+-Överklagade avgörandet: Halmstads tingsrätts mellandom den 7 december
+-2007 i mål nr T 271-06
++Överklagade avgörandet: Tingsrätts mellandom den 7 december
++2007
+ 
+ Tingsrättens dom, se bilaga.
+ 
+-M.L. har yrkat att Arbetsdomstolen med ändring av tingsrättens dom ska
++A har yrkat att Arbetsdomstolen med ändring av tingsrättens dom ska
+ fastställa att de omständigheter som staten genom Försäkringskassan
+ (Försäkringskassan) har åberopat som grund för uppsägningen av henne är
+ preskriberade enligt 7 § fjärde stycket anställningsskyddslagen och att
+ synnerliga skäl enligt samma bestämmelse inte föreligger.
+ 
+-Försäkringskassan har bestritt M.L:s ändringsyrkanden.
++Försäkringskassan har bestritt A:s ändringsyrkanden.
+ 
+ Arbetsdomstolen har, med stöd av 4 kap. 15 § andra stycket
+ arbetstvistlagen, avgjort målet utan huvudförhandling.
+@@ -254,7 +254,7 @@
+ Tvisten gäller om arbetsgivaren, till följd av den s.k.
+ tvåmånadersregeln i 7 § fjärde stycket anställningsskyddslagen, har
+ försuttit sin rätt att åberopa de omständigheter som arbetsgivaren lagt
+-M.L. till last som grund för uppsägningen. För att avgöra den frågan har
++A till last som grund för uppsägningen. För att avgöra den frågan har
+ Arbetsdomstolen att ta ställning till dels om de omständigheter som
+ arbetsgivaren åberopat till grund för uppsägningen utgör ett s.k.
+ bestående tillstånd, dels om det vid tillämpningen av tvåmånadersregeln
+@@ -267,7 +267,7 @@
+ anledning för domstolen att överväga om det ändå finns synnerliga skäl
+ för att omständigheterna ska få åberopas.
+ 
+-Utgör de omständigheter som Försäkringskassan har lagt M.L. till last
++Utgör de omständigheter som Försäkringskassan har lagt A till last
+ som grund för uppsägningen ett bestående tillstånd?
+ 
+ Som tingsrätten har redogjort för föreskrivs enligt huvudregeln i 7 §
+@@ -290,15 +290,15 @@
+ konkret händelse som infaller inom tvåmånadersfristen räknat från vare
+ sig underrättelsen eller uppsägningen. Försäkringskassan har dock gjort
+ gällande att i vart fall vissa av de omständigheter som åberopats till
+-grund för uppsägningen är av fortlöpande karaktär. M.L. har, enligt
++grund för uppsägningen är av fortlöpande karaktär. A har, enligt
+ Försäkringskassan, till exempel haft samarbetsproblem sedan många år.
+ 
+-M.L. har för sin del gjort gällande dels att det inte förekommit några
++A har för sin del gjort gällande dels att det inte förekommit några
+ samarbetsproblem, dels att de omständigheter som Försäkringskassan har
+ åberopat inte är av fortlöpande karaktär och inte heller ett bestående
+ tillstånd.
+ 
+-Vad Försäkringskassan har gjort gällande angående M.L:s samarbetsproblem
++Vad Försäkringskassan har gjort gällande angående A:s samarbetsproblem
+ i förhållande till såväl arbetsgivaren som kollegor innebär, enligt
+ Arbetsdomstolens mening, ett påstående om uppsägningsgrunder av mera
+ fortlöpande karaktär. Arbetsdomstolen delar alltså tingsrättens
+@@ -308,10 +308,10 @@
+ 
+ Arbetsdomstolen övergår därefter till att behandla frågan om vilken
+ rättslig betydelse det kan ha att det har förflutit i vart fall tio
+-månader från det att M.L. underrättades om att arbetsgivaren ville säga
++månader från det att A underrättades om att arbetsgivaren ville säga
+ upp henne till dess uppsägningen skedde.
+ 
+-M.L. har, med hänsyn till den långa tid som förflutit mellan
++A har, med hänsyn till den långa tid som förflutit mellan
+ underrättelsen och uppsägningen, gjort gällande att Försäkringskassan
+ inte kan åberopa underrättelsen vid tillämpning av tvåmånadersregeln i 7
+ § fjärde stycket anställningsskyddslagen.
+@@ -320,7 +320,7 @@
+ så skyndsamt som befintligt regelverk tillåtit och anfört i huvudsak
+ följande som skäl för att saken drog ut på tiden. De fackliga
+ överläggningarna avslutades först den 19 augusti 2005.
+-Förlikningsdiskussioner pågick fram till den 11 oktober 2005 då M.L.
++Förlikningsdiskussioner pågick fram till den 11 oktober 2005 då A
+ avböjde ett förlikningsbud. Därefter skulle Försäkringskassan dels ta
+ ställning till om ytterligare förlikningsbud skulle framarbetas, dels
+ behandla ärendet i personalansvarsnämnden.
+@@ -338,7 +338,7 @@
+ förhållanden av fortlöpande karaktär, finner Arbetsdomstolen att den tid
+ som har förflutit mellan underrättelsen och uppsägningen inte är utan
+ betydelse vid bedömningen av om Försäkringskassan försuttit sin rätt att
+-åberopa de omständigheter, även av fortlöpande karaktär, som lagts M.L.
++åberopa de omständigheter, även av fortlöpande karaktär, som lagts A
+ till last som grund för uppsägningen. Detta synsätt grundar
+ Arbetsdomstolen på att det i många fall torde kunna ligga nära till
+ hands för arbetstagaren att uppfatta det som att arbetsgivaren har
+@@ -361,28 +361,28 @@
+ tidpunkten för uppsägningen (se AD 1998 nr 16).
+ 
+ Av utredningen framgår att det fram till den 19 augusti 2005, dvs. under
+-cirka fem månader efter underrättelsen till M.L., pågick överläggningar
+-mellan Försäkringskassan och M.L:s fackliga organisation. Därefter
++cirka fem månader efter underrättelsen till A, pågick överläggningar
++mellan Försäkringskassan och A:s fackliga organisation. Därefter
+ fördes fortsatta förlikningsdiskussioner mellan Försäkringskassan och
+-M.L., genom hennes ombud, i vart fall fram till den 11 oktober 2005.
++A, genom hennes ombud, i vart fall fram till den 11 oktober 2005.
+ 
+ Såvitt framgår av utredningen användes alltså tiden fram till den 11
+ oktober 2005 till att försöka nå en överenskommelse mellan parterna,
+ vilket dock misslyckades. Utredningen ger vidare vid handen att
+ arbetsgivarens ståndpunkt under överläggningarna och
+-förlikningsdiskussionerna genomgående varit att M.L:s anställning skulle
++förlikningsdiskussionerna genomgående varit att A:s anställning skulle
+ avslutas. Under denna tidsperiod måste det alltså, enligt
+-Arbetsdomstolens mening, ha stått klart för M.L. att arbetsgivaren ville
++Arbetsdomstolens mening, ha stått klart för A att arbetsgivaren ville
+ avsluta hennes anställning.
+ 
+ När det gäller det som sedan hände har Försäkringskassan obestritt
+ anfört följande. Det gjordes en sammanställning av ärendet. Samtliga
+-tjänstemän som hade varit i kontakt med M.L. fick yttra sig. Ärendet
++tjänstemän som hade varit i kontakt med A fick yttra sig. Ärendet
+ överlämnades därefter till Försäkringskassans personalansvarsnämnd som
+ centralt har att fatta beslut i bl.a. uppsägningsfrågor. På grund av
+ mellankommande julledighet kom ärendet upp till nämndens avgörande den
+ 16 januari 2006. Omedelbart efter detta möte åkte två tjänstemän hem
+-till M.L. för att personligen överlämna uppsägningen. M.L. vägrade dock
++till A för att personligen överlämna uppsägningen. A vägrade dock
+ att ta emot handlingen utan bad tjänstemännen att lägga den i hennes
+ brevlåda.
+ 
+@@ -397,12 +397,12 @@
+ varit passiv vid handläggningen.
+ 
+ Sammanfattningsvis blir Arbetsdomstolens slutsats av det anförda att
+-Försäkringskassan har vidtagit åtgärder i sådan mån att M.L. inte haft
++Försäkringskassan har vidtagit åtgärder i sådan mån att A inte haft
+ anledning att tro att Försäkringskassan avstått från att fullfölja
+ uppsägningsförfarandet. Det finns därför inte skäl att frånkänna
+ underrättelsen verkan. Arbetsdomstolen delar alltså tingsrättens
+ bedömning att Försäkringskassan får anses bibehållen sin möjlighet att
+-åberopa de omständigheter som har lagts M.L. till last som grund för
++åberopa de omständigheter som har lagts A till last som grund för
+ uppsägningen.
+ 
+ Vid den bedömning som Arbetsdomstolen nu har gjort, dvs. att
+@@ -416,9 +416,9 @@
+ Arbetsdomstolens ställningstagande innebär att tingsrättens domslut ska
+ fastställas.
+ 
+-M.L:s rätthjälpsbiträde har yrkat ersättning för sammanlagt 47 timmars
++A:s rätthjälpsbiträde har yrkat ersättning för sammanlagt 47 timmars
+ arbete. Arbetsdomstolen finner i och för sig inte anledning att
+-ifrågasätta att rätthjälpsbiträdet har utfört arbete för M.L:s räkning
++ifrågasätta att rätthjälpsbiträdet har utfört arbete för A:s räkning
+ under den redovisade tiden. Med utgångspunkt i målets art och omfattning
+ finner dock Arbetsdomstolen att ersättning motsvarande 30 timmars arbete
+ är rimlig. Vid bestämmandet av ersättningsbeloppet har utgångspunkten
+@@ -454,19 +454,19 @@
+ 
+ YRKANDEN M.M.
+ 
+-M.L. har varit anställd hos Försäkringskassan i Hallands län sedan 1977.
++A har varit anställd hos Försäkringskassan sedan 1977.
+ Hon uppsades från anställningen genom en den 18 januari 2006 daterad
+ handling, vilken hon fick del av den 30 januari 2006. Som skäl för
+ uppsägningen angavs personliga skäl.
+ 
+-M.L. har yrkat att tingsrätten förklarar uppsägningen för ogiltig och
++A har yrkat att tingsrätten förklarar uppsägningen för ogiltig och
+ förpliktar Försäkringskassan att till henne utge allmänt skadestånd med
+ 125 000 kr och ekonomiskt skadestånd med ett belopp som hon senare
+ kommer att ange.
+ 
+ Försäkringskassan har bestritt käromålet.
+ 
+-M.L. har, såvitt nu behöver anges, gjort gällande att Försäkringskassan
++A har, såvitt nu behöver anges, gjort gällande att Försäkringskassan
+ försuttit den tid om två månader som anges i 7 § fjärde stycket lagen
+ (1982:80) om anställningsskydd (LAS) och att preskription enligt denna
+ bestämmelse inträtt. Uppsägningen är därför ogiltig.
+@@ -476,12 +476,12 @@
+ om ett bestående tillstånd varför tvåmånadersfristen i 7 § fjärde
+ stycket LAS inte är tillämplig.
+ 
+-M.L. har genmält att även om det varit fråga om ett bestående tillstånd
+-så är det orimligt att uppsägning sker ett år efter det att M.L. lämnat
++A har genmält att även om det varit fråga om ett bestående tillstånd
++så är det orimligt att uppsägning sker ett år efter det att A lämnat
+ arbetsplatsen. Uppsägning hade bort äga rum i vart fall senast i
+-anslutning till det att M.L. arbetsbefriades den 21 februari 2005.
++anslutning till det att A arbetsbefriades den 21 februari 2005.
+ 
+-M.L. har yrkat att tingsrätten i mellandom prövar frågan om
++A har yrkat att tingsrätten i mellandom prövar frågan om
+ Försäkringskassan enligt 7 § fjärde stycket LAS försuttit sin rätt att
+ vidta åtgärder mot henne.
+ 
+@@ -490,7 +490,7 @@
+ 
+ Parternas utveckling av talan
+ 
+-M.L: Hon har arbetat på Försäkringskassans kontor i Halmstad sedan 1977.
++A: Hon har arbetat på Försäkringskassans kontor sedan 1977.
+ Hon upplevde inte att det fanns några problem på arbetsplatsen och det
+ framfördes ingen kritik mot hennes sätt att utföra arbetet förrän 1988.
+ Hennes arbetsuppgifter var ursprungligen att handlägga ärenden avseende
+@@ -512,7 +512,7 @@
+ uppsägningen. - Hon känner sig mobbad på arbetsplatsen och hon har
+ anmält detta som en arbetsskada. Hon är vidare lönediskriminerad och
+ utsatt för kränkande behandling. - De personliga skäl som
+-Försäkringskassan anger som skäl för uppsägning är allmänt hållna. M.L.
++Försäkringskassan anger som skäl för uppsägning är allmänt hållna. A
+ har sedan mer än ett år varit tjänstebefriad och enligt arbetsgivarens
+ uttryckliga önskemål inte vistats på arbetsplatsen. Försäkringskassan
+ har enligt 7 § fjärde stycket LAS försuttit sin rätt att åberopa de
+@@ -520,7 +520,7 @@
+ Hon anser att tidsfristen två månader skall räknas från tidpunkten för
+ uppsägningen. För den händelse tingsrätten skulle finna att de
+ omständigheter som åberopas, vilket hävdas av Försäkringskassan, skall
+-anses som ett bestående tillstånd - vilket M.L. bestrider - menar hon
++anses som ett bestående tillstånd - vilket A bestrider - menar hon
+ att Försäkringskassan inte haft rätt att dröja ett år med att verkställa
+ uppsägningen särskilt som hon sedan februari 2005 inte vistats på
+ arbetsplatsen. Det saknas synnerliga skäl för att Försäkringskassan
+@@ -528,29 +528,29 @@
+ Försäkringskassan har således förlorat sin rätt att åberopa de anförda
+ omständigheterna som grund för uppsägning.
+ 
+-Försäkringskassan: M.L. har varit anställd vid Försäkringskassan sedan
++Försäkringskassan: A har varit anställd vid Försäkringskassan sedan
+ 1977. Under mer än 15 års tid har det förelegat problem kring
+ anställningen. Det har gjorts otaliga försök under årens lopp med att
+ komma tillrätta med problemen. I dessa försök har även förhandlingar om
+ egen uppsägning mot viss ekonomisk ersättning förts. Det har även gjorts
+ försök med omplaceringar. Situationen har successivt förvärrats och den
+-3 mars 2005 underrättade Försäkringskassan M.L. enligt 30 § LAS om
++3 mars 2005 underrättade Försäkringskassan A enligt 30 § LAS om
+ tilltänkt uppsägning på grund av personliga skäl. Varsel enligt 30 § LAS
+-sändes samma dag till M.L:s fackliga organisation och överläggningar
++sändes samma dag till A:s fackliga organisation och överläggningar
+ hölls sedan med Jusek under våren 2005 och de avslutades formellt den 19
+-augusti 2005. Eftersom överläggningarna strandat och då M.L. förkastat
++augusti 2005. Eftersom överläggningarna strandat och då A förkastat
+ samtliga förslag till alternativa åtgärder beslöt Försäkringskassan
+-genom sin Personalansvarsnämnd den 16 januari 2006 att säga upp M.L.
++genom sin Personalansvarsnämnd den 16 januari 2006 att säga upp A
+ Uppsägningsbesked lämnades till henne den 18 januari 2006. De personliga
+ skäl som Försäkringskassan grundat sin uppsägning i kan sammanfattas med
+ orden - samarbetsproblem, oberäknelig, skapar oro omkring sig, för
+ "krig" mot arbetsgivaren, oförmåga att anpassa sig och följa regler,
+ bristande lojalitet, bristande omdöme. Det är Försäkringskassans
+ bestämda uppfattning att alla rimliga ansträngningar gjorts för att lösa
+-de fleråriga samarbetsproblem som funnits mellan M.L. och
++de fleråriga samarbetsproblem som funnits mellan A och
+ Försäkringskassan. Samtliga möjligheter till omplacering har prövats.
+-M.L. har varit arbetsbefriad med lön sedan februari 2005.
+-Försäkringskassan bestrider att M.L. utsatts för kränkande
++A har varit arbetsbefriad med lön sedan februari 2005.
++Försäkringskassan bestrider att A utsatts för kränkande
+ särbehandling. De omständigheter som åberopas är av fortlöpande karaktär
+ där till exempel samarbetsproblem är att anse som ett bestående
+ tillstånd. En arbetsgivare är inte förhindrad att åberopa
+@@ -561,16 +561,16 @@
+ uppsägning. - Försäkringskassan vitsordar att uppsägning hade kunnat ske
+ redan den 21 februari 2005, men Försäkringskassan ville uttömma
+ möjligheterna till en frivillig överenskommelse. Förhandlingar fördes
+-först med fackförbundet Jusek och därefter med M.L:s fackliga ombud. Att
++först med fackförbundet Jusek och därefter med A:s fackliga ombud. Att
+ förhandlingarna, som förestavades av ambitionen att försöka undvika en
+ uppsägning, drog ut på tiden kan inte Försäkringskassan lastas för.
+ Först när möjligheterna att nå en frivillig uppgörelse var uttömda
+-tillgreps uppsägning. - Överläggningarna med M.L:s fackliga organisation
++tillgreps uppsägning. - Överläggningarna med A:s fackliga organisation
+ avslutades först den 19 augusti 2005. Härefter ägde det rum
+-överläggningar direkt med M.L. och hennes juridiska ombud, vilka
++överläggningar direkt med A och hennes juridiska ombud, vilka
+ avslutades den 11 oktober 2005. Därefter har ärendet överlämnats till
+ Försäkringskassans personalansvarsnämnd som avgjorde saken den 16
+-januari 2006. Omedelbart härefter åkte två tjänstemän hem till M.L. för
++januari 2006. Omedelbart härefter åkte två tjänstemän hem till A för
+ att personligen överlämna uppsägningen, men hon vägrade att ta emot
+ denne. Det är dock ostridigt att hon tog emot uppsägningen den 1
+ februari 2006. Försäkringskassan har försökt att handlägga ärendet så
+@@ -597,7 +597,7 @@
+ arbetstagarorganisationen som arbetstagaren tillhör om detta minst två
+ veckor i förväg.
+ 
+-M.L. underrättades den 3 mars 2005 om att Försäkringskassan avsåg att
++A underrättades den 3 mars 2005 om att Försäkringskassan avsåg att
+ säga upp henne och hon fick del av uppsägningen enligt hennes egen
+ uppgift den 30 januari 2006. Enligt förarbetena till 7 § fjärde stycket
+ LAS är det tillräckligt att arbetsgivaren kan stödja uppsägningen på
+@@ -614,14 +614,14 @@
+ möjligheten att åberopa de angivna förhållandena som grund för
+ uppsägning bortfallit. Synnerliga skäl enligt 7 § fjärde stycket LAS får
+ därför anses föreligga varför Försäkringskassan inte försuttit sin rätt
+-att åberopa de förhållanden Försäkringskassan lagt M.L. till last som
++att åberopa de förhållanden Försäkringskassan lagt A till last som
+ grund för uppsägningen av henne.
+ 
+ DOMSLUT
+ 
+-Tingsrätten förklarar att Försäkringskassan i Hallands län enligt 7 §
++Tingsrätten förklarar att Försäkringskassan enligt 7 §
+ fjärde stycket lagen (1982:80) om anställningsskydd inte försuttit sin
+-rätt att åberopa de förhållanden Försäkringskassan lagt M.L. till last
++rätt att åberopa de förhållanden Försäkringskassan lagt A till last
+ som grund för uppsägningen av henne.</entry>
+ 
+       </row>

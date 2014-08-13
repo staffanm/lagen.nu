@@ -1,0 +1,11 @@
+--- data/dv/intermediate/ooxml/REG/5486-09.xml	1980-01-01 00:00:00.000000000 +0100
++++ tmp/tmpKavMxQ	2011-03-23 09:50:53.000000000 +0100
+@@ -20,7 +20,7 @@ Korrigerad formattering av rõttsfallets beteckning
+         <w:tc>
+           <w:p>
+             <w:r>
+-              <w:t>RÅ 2010 ref.117</w:t>
++              <w:t>RÅ 2010 ref. 117</w:t>
+             </w:r>
+           </w:p>
+         </w:tc>

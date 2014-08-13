@@ -1,0 +1,11 @@
+--- data/dv/intermediate/docbook/REG/1087-08.xml	2010-03-12 16:45:19.079200000 +0100
++++ users\staffan\appdata\local\temp\tmpbywnza	2010-03-12 16:44:51.581199000 +0100
+@@ -73,7 +73,7 @@ Korrigerat felaktig datumformattering
+ 
+        <entry>Avgörandedatum:</entry>
+ 
+-       <entry>2009.08.28</entry>
++       <entry>2009-08-28</entry>
+ 
+       </row>
+ 

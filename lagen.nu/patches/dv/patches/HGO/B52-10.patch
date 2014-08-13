@@ -1,0 +1,11 @@
+--- data/dv/intermediate/ooxml/HGO/B52-10.xml	1980-01-01 00:00:00.000000000 +0100
++++ tmp/tmpMMXk2l	2011-03-23 09:59:18.000000000 +0100
+@@ -26,7 +26,7 @@ Korrigerad formattering av rõttsfallets beteckning
+         <w:tc>
+           <w:p>
+             <w:r>
+-              <w:t>RH 2010-109</w:t>
++              <w:t>RH 2010:109</w:t>
+             </w:r>
+           </w:p>
+         </w:tc>

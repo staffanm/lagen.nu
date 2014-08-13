@@ -1,0 +1,11 @@
+--- data/dv/intermediate/ooxml/MÖD/M2557-10.xml	1980-01-01 00:00:00.000000000 +0100
++++ tmp/tmpis2E97	2011-08-14 20:19:19.000000000 +0200
+@@ -116,7 +116,7 @@ Korrigerad datumformattering
+         <w:tc>
+           <w:p>
+             <w:r>
+-              <w:t>2011 03-23</w:t>
++              <w:t>2011-03-23</w:t>
+             </w:r>
+           </w:p>
+         </w:tc>
