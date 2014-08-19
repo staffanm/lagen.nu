@@ -240,7 +240,7 @@ class Register(CompoundElement):
         self.rubrik = kwargs.get('rubrik', None)
         super(Register, self).__init__(*args, **kwargs)
 
-    def as_xhtml(self, uri=None):
+    def as_xhtml(self, uri=None, parent_uri=None):
         res = super(Register, self).as_xhtml()
         res.insert(0, E('h1', self.rubrik))
         return res
@@ -257,7 +257,7 @@ class Registerpost(CompoundElement):
         self.uri = kwargs.get("uri", None)
         super(Registerpost, self).__init__(*args, **kwargs)
 
-    def as_xhtml(self, uri=None):
+    def as_xhtml(self, uri=None, parent_uri=None):
         # FIXME: Render this better (particularly the rpubl:andring
         # property -- should be parsed and linked)
         return super(Registerpost, self).as_xhtml()
@@ -1416,7 +1416,6 @@ class SFS(Trips):
                             self.canonical_uri(doc.basefile),
                             skipfragments)
 
-        from pudb import set_trace; set_trace()
         self.lagrum_parser.parse_recursive(doc.body)
 
     #----------------------------------------------------------------
@@ -2601,7 +2600,6 @@ class SFS(Trips):
         # rinfo:lagrum, either directly or through a chain of
         # dcterms:isPartOf statements
         start = time()
-        from pudb import set_trace; set_trace()
         rattsfall = select(store, "res/sparql/sfs_rattsfallsref.rq", dvdataset)
         self.log.debug('%s: Orig: Selected %d legal cases (%.3f sec)',
                        basefile, len(rattsfall), time() - start)

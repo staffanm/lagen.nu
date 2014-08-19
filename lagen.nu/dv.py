@@ -129,14 +129,13 @@ class DVStore(DocumentStore):
             for x in super(DVStore, self).list_basefiles_for(action, basedir):
                 yield x
 
-# (ab)use the CitationClass, with it's useful parse_recursive method,
-# to use a legalref based parser instead of a set of pyparsing
-# grammars. 
-
 class OrderedParagraph(Paragraph, OrdinalElement):
-    def as_html(self, baseuri):
-        element = super(Instans, self).as_xhtml(baseuri)
-        element.set('id', self.ordinal)
+    def as_xhtml(self, baseuri, parent_uri=None):
+        element = super(OrderedParagraph, self).as_xhtml(baseuri, parent_uri)
+        # FIXME: id needs to be unique in document by prepending a
+        # instans identifier
+        # element.set('id', self.ordinal)
+        return element
 
 class DomElement(CompoundElement):
     tagname = "div"
@@ -145,8 +144,8 @@ class DomElement(CompoundElement):
         return self.__class__.__name__.lower()
     classname = property(_get_classname)
 
-    def as_xhtml(self, baseuri):
-        element = super(DomElement, self).as_xhtml(baseuri)
+    def as_xhtml(self, baseuri, parent_uri=None):
+        element = super(DomElement, self).as_xhtml(baseuri, parent_uri)
         if self.prop:
             # ie if self.prop = ('ordinal', 'dcterms:identifier'), then
             # dcterms:identifier = self.ordinal
@@ -188,9 +187,6 @@ class DV(SwedishLegalSource):
     
     DCTERMS = Namespace(util.ns['dcterms'])
     sparql_annotations = "res/sparql/dv-annotations.rq"
-
-    def __ini___(self, config=None, **kwargs):
-        super(SFS, self).__init__(config, **kwargs)
 
     @classmethod
     def relate_all_setup(cls, config):
@@ -1454,8 +1450,6 @@ class DV(SwedishLegalSource):
             m.append(parser.reader.next())
             return parser.make_children(m)
             
-        
-            
         def make_paragraph(parser):
             chunk = parser.reader.next()
             strchunk = str(chunk)
@@ -1474,7 +1468,7 @@ class DV(SwedishLegalSource):
 
         def ordered(chunk):
             if re.match("(\d+).", chunk):
-                return chunk.split(".", 1)
+                return chunk.split(".", 1)[0]
 
         def transition_domskal(symbol, statestack):
             if 'betankande' in statestack:
