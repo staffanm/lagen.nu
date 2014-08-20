@@ -2585,11 +2585,16 @@ class SFS(Trips):
             sq = fp.read().decode('utf-8') % params
             fp.close()
             return store.select(sq, "python")
-            
+
+        sfsdataset = self.dataset_uri()
+        assert "sfs" in sfsdataset
+        dvdataset = sfsdataset.replace("sfs", "dv")
+        
         # this is old legacy code. The new nice way would be to create
         # one giant SPARQL CONSTRUCT query file and just set
         # self.sparql_annotations to that file. But you know, this works.
         uri = self.canonical_uri(basefile)
+        baseuri = uri
         store = TripleStore.connect(self.config.storetype,
                                     self.config.storelocation,
                                     self.config.storerepository)
@@ -2599,10 +2604,14 @@ class SFS(Trips):
         # 1. all rinfo:Rattsfallsreferat that has baseuri as a
         # rinfo:lagrum, either directly or through a chain of
         # dcterms:isPartOf statements
-        start = time()
-        rattsfall = select(store, "res/sparql/sfs_rattsfallsref.rq", dvdataset)
-        self.log.debug('%s: Orig: Selected %d legal cases (%.3f sec)',
-                       basefile, len(rattsfall), time() - start)
+        values = {'basefile': basefile,
+                  'count': None}
+        with util.logtime(self.log.debug,
+                          "%(basefile)s: selected %(count)s legal cases (%(elapsed).3f sec)",
+                          values):
+            rattsfall = select(store, "res/sparql/sfs_rattsfallsref.rq", dvdataset)
+            values['count'] = len(rattsfall)
+
         stuff[baseuri] = {}
         stuff[baseuri]['rattsfall'] = []
 
@@ -2647,12 +2656,14 @@ class SFS(Trips):
         stuff[baseuri]['rattsfall'] = filtered
 
         # 2. all law sections that has a dcterms:references that matches this (using dcterms:isPartOf).
-        start = time()
-        inboundlinks = select(store, "res/sparql/sfs_inboundlinks.rq", sfsdataset)
-        self.log.debug('%s:  New: Selected %d inbound links (%.3f sec)',
-                       basefile, len(inboundlinks), time() - start)
-        self.log.debug('%s: Selected %d inbound links (%.3f sec)',
-                       basefile, len(inboundlinks), time() - start)
+        values = {'basefile': basefile,
+                  'count': None}
+        with util.logtime(self.log.debug,
+                          "%(basefile)s: selected %(count)s law references (%(elapsed).3f sec)",
+                          values):
+            inboundlinks = select(store, "res/sparql/sfs_inboundlinks.rq", sfsdataset)
+            values['count'] = len(inboundlinks)
+
         stuff[baseuri]['inboundlinks'] = []
 
         # mapping <http://rinfo.lagrummet.se/publ/sfs/1999:175> =>
@@ -2690,11 +2701,14 @@ class SFS(Trips):
 
         # pprint (stuff)
         # 3. all wikientries that dcterms:description this
-        start = time()
-        wikidesc = select(store, "res/sparql/sfs_wikientries.rq")
+        values = {'basefile': basefile,
+                  'count': None}
+        with util.logtime(self.log.debug,
+                          "%(basefile)s: selected %(count)s wiki comments (%(elapsed).3f sec)",
+                          values):
+            wikidesc = select(store, "res/sparql/sfs_wikientries.rq") # , wikidataset
+            values['count'] = len(wikidesc)
 
-        self.log.debug('%s:  New: Selected %d wiki comments (%.3f sec)',
-                       basefile, len(wikidesc), time() - start)
         # wikidesc = []
         for row in wikidesc:
             if not 'lagrum' in row:
@@ -2706,20 +2720,19 @@ class SFS(Trips):
                 stuff[lagrum] = {}
             stuff[lagrum]['desc'] = row['desc']
 
-        self.log.debug('%s: Selected %d wiki comments (%.3f sec)',
-                       basefile, len(wikidesc), time() - start)
-
         # pprint(wikidesc)
         # (4. eurlex.nu data (mapping CELEX ids to titles))
         # (5. Propositionstitlar)
         # 6. change entries for each section
         # FIXME: we need to differentiate between additions, changes
         # and deletions
-        start = time()
-        changes = self._store_run_query("sparql/sfs_changes.rq", uri=baseuri)
-        self.log.debug('%s:  New: Selected %d change annotations (%.3f sec)',
-                       basefile, len(changes), time() - start)
-        # changes = []
+        values = {'basefile': basefile,
+                  'count': None}
+        with util.logtime(self.log.debug,
+                          "%(basefile)s: selected %(count)s change annotations (%(elapsed).3f sec)",
+                          values):
+            changes = select(store, "res/sparql/sfs_changes.rq", sfsdataset)
+            values['count'] = len(changes)
 
         for row in changes:
             lagrum = row['lagrum']
