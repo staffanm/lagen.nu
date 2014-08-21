@@ -3,8 +3,8 @@
 		xmlns:xhtml="http://www.w3.org/1999/xhtml"
 		xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
 		xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-		xmlns:dct="http://purl.org/dc/terms/"
-		xmlns:rinfo="http://rinfo.lagrummet.se/taxo/2007/09/rinfo/pub#"
+		xmlns:dcterms="http://purl.org/dc/terms/"
+		xmlns:rpubl="http://rinfo.lagrummet.se/ns/2008/11/rinfo/publ#"
 		xmlns:rinfoex="http://lagen.nu/terms#"
 		exclude-result-prefixes="xhtml rdf">
 
@@ -12,128 +12,74 @@
   <xsl:import href="tune-width.xsl"/>
   <xsl:include href="base.xsl"/>
   
-  <xsl:template name="bodyclass">sfs</xsl:template>
-  <xsl:template name="pagetitle">
-    <h1><xsl:value-of select="../xhtml:head/xhtml:title"/></h1>
-  </xsl:template>
-
-  <xsl:variable name="dokumenturi" select="/html/@xml:base"/>
-
-  <xsl:variable name="docmetadata">
-    <dl id="refs-dokument">
-      <dt>Departement</dt>
-      <dd rel="dct:creator" resource="{//dd[@rel='dct:creator']/@href}"><xsl:value-of select="//dd[@rel='dct:creator']"/></dd>
-      <dt>Utfärdad</dt>
-      <dd property="rpubl:utfardandedatum" datatype="xsd:date"><xsl:value-of select="//dd[@property='rpubl:utfardandedatum']"/></dd>
-      <dt>Ändring införd</dt>
-      <dd rel="rpubl:konsolideringsunderlag" href="{//dd[@rel='rpubl:konsolideringsunderlag']/@href}"><xsl:value-of select="//dd[@rel='rpubl:konsolideringsunderlag']"/></dd>
-      <xsl:if test="//dd[@property='rinfoex:tidsbegransad']">
-	<dt>Tidsbegränsad</dt>
-	<dd property="rinfoex:tidsbegransad"><xsl:value-of select="//dd[@property='rinfoex:tidsbegransad']"/></dd>
-      </xsl:if>
-      <dt>Källa</dt>
-      <dd rel="dct:publisher" resource="http://lagen.nu/org/2008/regeringskansliet"><a href="http://62.95.69.15/cgi-bin/thw?%24%7BHTML%7D=sfst_lst&amp;%24%7BOOHTML%7D=sfst_dok&amp;%24%7BSNHTML%7D=sfst_err&amp;%24%7BBASE%7D=SFST&amp;%24%7BTRIPSHOW%7D=format%3DTHW&amp;BET={//dd[@property='rpubl:fsNummer']}">Regeringskansliets rättsdatabaser</a></dd>
-      <dt>Senast hämtad</dt>
-      <dd property="rinfoex:senastHamtad" datatype="xsd:date"><xsl:value-of select="//meta[@property='rinfoex:senastHamtad']/@content"/></dd>
-      <xsl:if test="//dd[@property='rdfs:comment']">
-	<dt>Övrigt</dt>
-	<dd property="rdfs:comment"><xsl:value-of select="//dd[@property='rdfs:comment']"/></dd>
-      </xsl:if>
-    </dl>
-  </xsl:variable>
-  
   <!-- Implementationer av templates som anropas från base.xsl -->
   <xsl:template name="headtitle">
-    <xsl:value-of select="//title"/>
-    <xsl:if test="//meta[@property='dct:alternate']/@content">
-      (<xsl:value-of select="//meta[@property='dct:alternate']/@content"/>)
+    <xsl:value-of select="//xhtml:title"/>
+    <xsl:if test="//xhtml:meta[@property='dcterms:alternate']/@content">
+      (<xsl:value-of select="//xhtml:meta[@property='dcterms:alternate']/@content"/>)
     </xsl:if> | Lagen.nu
   </xsl:template>
 
   <xsl:template name="metarobots"/>
 
   <xsl:template name="linkalternate">
-    <link rel="alternate" type="text/plain" title="Plain text">
-      <xsl:attribute name="href">/<xsl:value-of select="//meta[@property='rpubl:fsNummer']/@content"/>.txt</xsl:attribute>
-    </link>
-    <link rel="alternate" type="application/xml" title="XHTML2">
-      <xsl:attribute name="href">/<xsl:value-of select="//meta[@property='rpubl:fsNummer']/@content"/>.xht2</xsl:attribute>
-    </link>
+    <link rel="alternate" type="text/plain" href="{$documenturi}.txt" title="Plain text"/>
   </xsl:template>
 
   <xsl:template name="headmetadata"/>
 
-  
-  <xsl:template match="body">
-    <xsl:variable name="rattsfall" select="$annotations/rdf:Description[@rdf:about=$dokumenturi]/rpubl:isLagrumFor/rdf:Description"/>
-    <xsl:variable name="kommentar" select="$annotations/rdf:Description[@rdf:about=$dokumenturi]/dct:description/div/*"/>
-    <div class="konsolideradtext">
-      <table>
-	<tr>
-	  <td width="50%">
-	    <h1 property="dct:title"><xsl:value-of select="//h[@property = 'dct:title']"/></h1>
-	    <xsl:copy-of select="$docmetadata"/>
-	    
-	    <xsl:if test="../dl[@role='contentinfo']/dd[@rel='rinfoex:upphavdAv']">
-	      <div class="ui-state-error">
-		<span class="ui-icon ui-icon-alert" style="float: left;margin-right:.3em;"/>
-		OBS: Författningen har upphävts/ska upphävas <xsl:value-of
-		select="../dl[@role='contentinfo']/dd[@property='rinfoex:upphavandedatum']"/>
-		genom SFS <xsl:value-of
-		select="../dl[@role='contentinfo']/dd[@rel='rinfoex:upphavdAv']"/>
-	      </div>
-	    </xsl:if>
+  <xsl:template name="bodyclass">sfs</xsl:template>
 
-	    <xsl:if test="../dl[@role='contentinfo']/dd[@property='rinfoex:patchdescription']">
-	      <div class="ui-state-highlight">
-		<span class="ui-icon ui-icon-info" style="float: left;margin-right:.3em;"/>
-		Texten har ändrats jämfört med ursprungsmaterialet:
-		<xsl:value-of
-		    select="../dl[@role='contentinfo']/dd[@property='rinfoex:patchdescription']"/>
-	      </div>
-	    </xsl:if>
-	    
-	  </td>
-	  <td class="aux">
-	    <xsl:if test="$kommentar or $rattsfall">
-	      <div class="ui-accordion">
-		<xsl:if test="$kommentar">
-		  <xsl:call-template name="accordionbox">
-		    <xsl:with-param name="heading">Kommentar</xsl:with-param>
-		    <xsl:with-param name="contents">
-		      <p class="ui-state-highlight">
-			<span class="ui-icon ui-icon-info" style="float: left; margin-right: .3em;"></span> 
-			Var kommer de här kommentarerna från? <a href="/om/ansvarsfriskrivning.html">Läs mer...</a>
-			
-		      </p>
-		      <xsl:apply-templates select="$kommentar"/>
-		      <p class="ui-state-highlight" style="padding:2pt; margin:0">
-			Hittar du något fel i lagkommentaren? Du får gärna <a href="/w/index.php?title=Diskussion:SFS/{//dd[@property='rpubl:fsNummer']}&amp;action=edit&amp;section=new&amp;preloadtitle=Felrapport&amp;editintro=Lagen.nu:Editintro/Felrapport">skriva en felrapport</a>.
-		      </p>
-		      
-		    </xsl:with-param>
-		    <xsl:with-param name="first" select="true()"/>
-		  </xsl:call-template>
-		</xsl:if>
-		<xsl:if test="$rattsfall">
-		  <xsl:call-template name="accordionbox">
-		    <xsl:with-param name="heading">Rättsfall (<xsl:value-of select="count($rattsfall)"/>)</xsl:with-param>
-		    <xsl:with-param name="contents">
-		      <xsl:call-template name="rattsfall">
-			<xsl:with-param name="rattsfall" select="$rattsfall"/>
-		      </xsl:call-template>
-		    </xsl:with-param>
-		    <xsl:with-param name="first" select="not($kommentar)"/>
-		  </xsl:call-template>
-		</xsl:if>
-	      </div>
-	    </xsl:if>
-	  </td>
-	</tr>
-	<xsl:apply-templates/>
-      </table>
-    </div>
+  <xsl:template name="pagetitle">
+    <h1><xsl:value-of select="../xhtml:head/xhtml:title"/></h1>
+    <xsl:call-template name="docmetadata"/>
+    <xsl:if test="../../xhtml:head/xhtml:meta[@rel='rinfoex:upphavdAv']">
+      <div class="ui-state-error">
+	<span class="ui-icon ui-icon-alert" style="float: left;margin-right:.3em;"/>
+	OBS: Författningen har upphävts/ska upphävas <xsl:value-of
+	select="../dl[@role='contentinfo']/dd[@rel='rinfoex:upphavandedatum']"/>
+	genom SFS <xsl:value-of
+	select="../../xhtml:head/meta[@rel='rinfoex:upphavdAv']"/>
+      </div>
+    </xsl:if>
+    <xsl:if test="//xhtml:meta[@property='rinfoex:patchdescription']/@content">
+      <div class="ui-state-highlight">
+	<span class="ui-icon ui-icon-info" style="float: left;margin-right:.3em;"/>
+	Texten har ändrats jämfört med ursprungsmaterialet:
+	<xsl:value-of
+	    select="//xhtml:meta[@property='rinfoex:patchdescription']/@content"/>
+      </div>
+    </xsl:if>
   </xsl:template>
+
+  <xsl:variable name="documenturi" select="//xhtml:head/@about"/>
+  <xsl:variable name="sfsannotations" select="document($annotationfile)"/>
+  <xsl:variable name="rattsfall" select="$sfsannotations/rdf:Description[@rdf:about=$documenturi]/rpubl:isLagrumFor/rdf:Description"/>
+  <xsl:variable name="kommentar" select="$sfsannotations/rdf:Description[@rdf:about=$documenturi]/dcterms:description/div/*"/>
+
+  <xsl:template name="docmetadata">
+    <dl id="refs-dokument">
+      <dt>Departement</dt>
+      <dd><xsl:value-of select="//xhtml:link[@rel='dcterms:creator']/@href"/></dd>
+      <dt>Utfärdad</dt>
+      <dd><xsl:value-of select="//xhtml:meta[@property='rpubl:utfardandedatum']/@content"/></dd>
+      <dt>Ändring införd</dt>
+      <dd><xsl:value-of select="//xhtml:meta[@property='dcterms:identifier']/@content"/></dd>
+      <xsl:if test="//xhtml:meta[@property='rinfoex:tidsbegransad']/@content">
+	<dt>Tidsbegränsad</dt>
+	<dd><xsl:value-of select="//xhtml:meta[@property='rinfoex:tidsbegransad']/@content"/></dd>
+      </xsl:if>
+      <dt>Källa</dt>
+      <dd rel="dcterms:publisher" resource="http://lagen.nu/org/2008/regeringskansliet"><a href="http://62.95.69.15/cgi-bin/thw?%24%7BHTML%7D=sfst_lst&amp;%24%7BOOHTML%7D=sfst_dok&amp;%24%7BSNHTML%7D=sfst_err&amp;%24%7BBASE%7D=SFST&amp;%24%7BTRIPSHOW%7D=format%3DTHW&amp;BET={//span[@property='rpubl:arsutgava'][1]}:{//span[@property='rpubl:lopnummer'][1]}">Regeringskansliets rättsdatabaser</a></dd>
+      <dt>Senast hämtad</dt>
+      <dd><xsl:value-of select="//xhtml:meta[@property='rinfoex:senastHamtad']/@content"/></dd>
+      <xsl:if test="//xhtml:meta[@property='rdfs:comment']/@content">
+	<dt>Övrigt</dt>
+	<dd><xsl:value-of select="//xhtml:meta[@property='rdfs:comment']/@content"/></dd>
+      </xsl:if>
+    </dl>
+  </xsl:template>
+  
 
   <xsl:template match="h2">
     <tr>
@@ -143,8 +89,8 @@
 	</xsl:for-each><xsl:value-of select="."/></h2>
       </td>
       <td class="aux" id="refs-{../@id}">
-	<xsl:variable name="kapiteluri" select="concat($dokumenturi,'#', ../@id)"/>
-	<xsl:variable name="kommentar" select="$annotations/rdf:Description[@rdf:about=$kapiteluri]/dct:description/div/*"/>
+	<xsl:variable name="kapiteluri" select="concat($documenturi,'#', ../@id)"/>
+	<xsl:variable name="kommentar" select="$annotations/rdf:Description[@rdf:about=$kapiteluri]/dcterms:description/div/*"/>
 	<xsl:if test="$kommentar">
 	  <div class="ui-accordion">
 	    <xsl:call-template name="accordionbox">
@@ -194,10 +140,10 @@
  
   <xsl:template match="div[@typeof='rpubl:Paragraf']">
     <!-- plocka fram referenser kring/till denna paragraf -->
-    <xsl:variable name="paragrafuri" select="concat($dokumenturi,'#', @id)"/>
+    <xsl:variable name="paragrafuri" select="concat($documenturi,'#', @id)"/>
     <xsl:variable name="rattsfall" select="$annotations/rdf:Description[@rdf:about=$paragrafuri]/rpubl:isLagrumFor/rdf:Description"/>
-    <xsl:variable name="inbound" select="$annotations/rdf:Description[@rdf:about=$paragrafuri]/dct:references"/>
-    <xsl:variable name="kommentar" select="$annotations/rdf:Description[@rdf:about=$paragrafuri]/dct:description/div/*"/>
+    <xsl:variable name="inbound" select="$annotations/rdf:Description[@rdf:about=$paragrafuri]/dcterms:references"/>
+    <xsl:variable name="kommentar" select="$annotations/rdf:Description[@rdf:about=$paragrafuri]/dcterms:description/div/*"/>
     <xsl:variable name="inford" select="$annotations/rdf:Description[@rdf:about=$paragrafuri]/rpubl:isEnactedBy"/>
     <xsl:variable name="andrad" select="$annotations/rdf:Description[@rdf:about=$paragrafuri]/rpubl:isChangedBy"/>
     <xsl:variable name="upphavd" select="$annotations/rdf:Description[@rdf:about=$paragrafuri]/rpubl:isRemovedBy"/>
@@ -316,19 +262,19 @@
 	<xsl:sort select="@rdf:about"/>
 	<xsl:variable name="tuned-width">
 	  <xsl:call-template name="tune-width">
-	    <xsl:with-param name="txt" select="dct:description"/>
+	    <xsl:with-param name="txt" select="dcterms:description"/>
 	    <xsl:with-param name="width" select="80"/>
 	    <xsl:with-param name="def" select="80"/>
 	  </xsl:call-template>
 	</xsl:variable>
 	<xsl:variable name="localurl"><xsl:call-template name="localurl"><xsl:with-param name="uri" select="@rdf:about"/></xsl:call-template></xsl:variable>
-	<a href="{$localurl}"><b><xsl:value-of select="dct:identifier"/></b></a>:
+	<a href="{$localurl}"><b><xsl:value-of select="dcterms:identifier"/></b></a>:
 	<xsl:choose>
-	  <xsl:when test="string-length(dct:description) > 80">
-	    <xsl:value-of select="normalize-space(substring(dct:description, 1, $tuned-width - 1))" />...
+	  <xsl:when test="string-length(dcterms:description) > 80">
+	    <xsl:value-of select="normalize-space(substring(dcterms:description, 1, $tuned-width - 1))" />...
 	  </xsl:when>
 	  <xsl:otherwise>
-	    <xsl:value-of select="dct:description"/>
+	    <xsl:value-of select="dcterms:description"/>
 	  </xsl:otherwise>
 	</xsl:choose>
 	<br/>
@@ -341,9 +287,9 @@
       <xsl:for-each select="$inbound">
 	<li>
 	  <xsl:for-each select="rdf:Description">
-	    <xsl:if test="./dct:identifier != ''">
+	    <xsl:if test="./dcterms:identifier != ''">
 	      <xsl:variable name="localurl"><xsl:call-template name="localurl"><xsl:with-param name="uri" select="@rdf:about"/></xsl:call-template></xsl:variable>
-	      <a href="{$localurl}"><xsl:value-of select="dct:identifier"/></a><xsl:if test="position()!=last()">, </xsl:if>
+	      <a href="{$localurl}"><xsl:value-of select="dcterms:identifier"/></a><xsl:if test="position()!=last()">, </xsl:if>
 	    </xsl:if>
 	  </xsl:for-each>
 	</li>
@@ -383,8 +329,8 @@
     <div class="andring" id="{concat(substring-before(@id,':'),'-',substring-after(@id,':'))}" about="{@about}">
       <!-- titel eller sfsnummer, om ingen titel finns -->
       <h2><xsl:choose>
-	<xsl:when test="dl/dd[@property='dct:title']">
-	  <xsl:value-of select="dl/dd[@property='dct:title']"/>
+	<xsl:when test="dl/dd[@property='dcterms:title']">
+	  <xsl:value-of select="dl/dd[@property='dcterms:title']"/>
 	</xsl:when>
 	<xsl:otherwise>
 	  <xsl:value-of select="dl/dd[@property='rpubl:fsNummer']"/>
