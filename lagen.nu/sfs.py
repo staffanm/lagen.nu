@@ -45,7 +45,7 @@ from ferenda.elements import TemporalElement
 from ferenda.elements import UnicodeElement
 from ferenda.errors import DocumentRemovedError, ParseError
 from ferenda.sources.legal.se.legalref import LegalRef, LinkSubject
-from ferenda.sources.legal.se import SwedishCitationParser
+from ferenda.sources.legal.se import SwedishCitationParser, RPUBL
 
 E = ElementMaker(namespace="http://www.w3.org/1999/xhtml")
 # Objektmodellen för en författning är uppbyggd av massa byggstenar
@@ -329,7 +329,7 @@ class SFS(Trips):
 
     """
     alias = "sfs"
-
+    rdf_type = RPUBL.KonsolideradGrundforfattning
     app = "sfst"  # dir, prop, sfst
     base = "SFSR"  # DIR, THWALLPROP, SFSR
 
@@ -337,9 +337,6 @@ class SFS(Trips):
                  "&${OOHTML}=%(app)s_dok&${SNHTML}=%(app)s_err"
                  "&${MAXPAGE}=%(maxpage)d&${BASE}=%(base)s"
                  "&${FORD}=FIND&%%C5R=FR%%C5N+%(start)s&%%C5R=TILL+%(end)s")
-
-    # need to (re)write this
-    # xslt_template = "res/xsl/sfs.xsl"
 
     download_params = [
         {'maxpage': 101,
@@ -369,8 +366,7 @@ class SFS(Trips):
         "${HTML}=sfst_lst&${SNHTML}=sfsr_err&${BASE}=SFSR&"
         "${TRIPSHOW}=format=THW&%%C4BET=%(basefile)s")
 
-
-    sparql_annotations = "sparql/sfs.rq"
+    xslt_template = "res/xsl/sfs.xsl"
     
     documentstore_class = SFSDocumentStore
 
@@ -1337,7 +1333,6 @@ class SFS(Trips):
 #                        # triples in the RDFa output
 #                        # print "Parsing %s" % " ".join(p.split())
 #                        # print "Calling parse w %s" % baseuri+"#"+prefix
-#                        from pudb import set_trace; set_trace()
 #                        parsednodes = self.lagrum_parser.parse(s,
 #                                                               baseuri +
 #                                                               prefix,
@@ -2573,18 +2568,20 @@ class SFS(Trips):
 
     _document_name_cache = {}
 
+    def store_select(self, store, query_template, uri, context=None):
+        if os.path.exists(query_template):
+            fp = open(query_template, 'rb')
+        elif pkg_resources.resource_exists('ferenda', query_template):
+            fp = pkg_resources.resource_stream('ferenda', query_template)
+        else:
+            raise ValueError("query template %s not found" % query_template)
+        params = {'uri': uri}
+        sq = fp.read().decode('utf-8') % params
+        fp.close()
+        return store.select(sq, "python")
+
+
     def prep_annotation_file(self, basefile):
-        def select(store, query_template, context=None):
-            if os.path.exists(query_template):
-                fp = open(query_template, 'rb')
-            elif pkg_resources.resource_exists('ferenda', query_template):
-                fp = pkg_resources.resource_stream('ferenda', query_template)
-            else:
-                raise ValueError("query template %s not found" % query_template)
-            params = {'uri': uri}
-            sq = fp.read().decode('utf-8') % params
-            fp.close()
-            return store.select(sq, "python")
 
         sfsdataset = self.dataset_uri()
         assert "sfs" in sfsdataset
@@ -2601,15 +2598,15 @@ class SFS(Trips):
         # Putting togeher a (non-normalized) RDF/XML file, suitable
         # for XSLT inclusion in six easy steps
         stuff = {}
-        # 1. all rinfo:Rattsfallsreferat that has baseuri as a
-        # rinfo:lagrum, either directly or through a chain of
+        # 1. all rpubl:Rattsfallsreferat that has baseuri as a
+        # rpubl:lagrum, either directly or through a chain of
         # dcterms:isPartOf statements
         values = {'basefile': basefile,
                   'count': None}
         with util.logtime(self.log.debug,
                           "%(basefile)s: selected %(count)s legal cases (%(elapsed).3f sec)",
                           values):
-            rattsfall = select(store, "res/sparql/sfs_rattsfallsref.rq", dvdataset)
+            rattsfall = self.store_select(store, "res/sparql/sfs_rattsfallsref.rq", uri, dvdataset)
             values['count'] = len(rattsfall)
 
         stuff[baseuri] = {}
@@ -2661,7 +2658,7 @@ class SFS(Trips):
         with util.logtime(self.log.debug,
                           "%(basefile)s: selected %(count)s law references (%(elapsed).3f sec)",
                           values):
-            inboundlinks = select(store, "res/sparql/sfs_inboundlinks.rq", sfsdataset)
+            inboundlinks = self.store_select(store, "res/sparql/sfs_inboundlinks.rq", uri, sfsdataset)
             values['count'] = len(inboundlinks)
 
         stuff[baseuri]['inboundlinks'] = []
@@ -2706,7 +2703,7 @@ class SFS(Trips):
         with util.logtime(self.log.debug,
                           "%(basefile)s: selected %(count)s wiki comments (%(elapsed).3f sec)",
                           values):
-            wikidesc = select(store, "res/sparql/sfs_wikientries.rq") # , wikidataset
+            wikidesc = self.store_select(store, "res/sparql/sfs_wikientries.rq", uri) # , wikidataset
             values['count'] = len(wikidesc)
 
         # wikidesc = []
@@ -2731,7 +2728,7 @@ class SFS(Trips):
         with util.logtime(self.log.debug,
                           "%(basefile)s: selected %(count)s change annotations (%(elapsed).3f sec)",
                           values):
-            changes = select(store, "res/sparql/sfs_changes.rq", sfsdataset)
+            changes = self.store_select(store, "res/sparql/sfs_changes.rq", uri, sfsdataset)
             values['count'] = len(changes)
 
         for row in changes:
@@ -2752,50 +2749,48 @@ class SFS(Trips):
         #
         # <rdf:RDF>
         # <rdf:Description about="http://rinfo.lagrummet.se/publ/sfs/1998:204#P1">
-        #     <rinfo:isLagrumFor>
+        #     <rpubl:isLagrumFor>
         #       <rdf:Description about="http://rinfo.lagrummet.se/publ/dom/rh/2004:51">
         #           <dcterms:identifier>RH 2004:51</dcterms:identifier>
         #           <dcterms:description>Hemsida på Internet. Fråga om...</dcterms:description>
         #       </rdf:Description>
-        #     </rinfo:isLagrumFor>
+        #     </rpubl:isLagrumFor>
         #     <dcterms:description>Personuppgiftslagens syfte är att skydda...</dcterms:description>
-        #     <rinfo:isChangedBy>
+        #     <rpubl:isChangedBy>
         #        <rdf:Description about="http://rinfo.lagrummet.se/publ/sfs/2003:104">
         #           <dcterms:identifier>SFS 2003:104</dcterms:identifier>
-        #           <rinfo:proposition>
+        #           <rpubl:proposition>
         #             <rdf:Description about="http://rinfo.lagrummet.se/publ/prop/2002/03:123">
         #               <dcterms:title>Översyn av personuppgiftslagen</dcterms:title>
         #               <dcterms:identifier>Prop. 2002/03:123</dcterms:identifier>
         #             </rdf:Description>
-        #           </rinfo:proposition>
+        #           </rpubl:proposition>
         #        </rdf:Description>
-        #     </rinfo:isChangedBy>
+        #     </rpubl:isChangedBy>
         #   </rdf:Description>
         # </rdf:RDF>
 
         start = time()
-        root_node = etree.Element("rdf:RDF")
-        for prefix in util.ns:
-            # we need this in order to make elementtree not produce
-            # stupid namespaces like "xmlns:ns0" when parsing an external
-            # string like we do below (the etree.fromstring call)
-            etree._namespace_map[util.ns[prefix]] = prefix
-            root_node.set("xmlns:" + prefix, util.ns[prefix])
-
+        # compatibility hack to enable lxml to process qnames for namespaces 
+        def ns(string):
+            if ":" in string:
+                prefix, tag = string.split(":", 1)
+                return "{%s}%s" % (str(self.ns[prefix]), tag)
+        root_node = etree.Element(ns("rdf:RDF"), nsmap=self.ns)
         for l in sorted(list(stuff.keys()), cmp=util.numcmp):
-            lagrum_node = etree.SubElement(root_node, "rdf:Description")
-            lagrum_node.set("rdf:about", l)
+            lagrum_node = etree.SubElement(root_node, ns("rdf:Description"))
+            lagrum_node.set(ns("rdf:about"), l)
             if 'rattsfall' in stuff[l]:
                 for r in stuff[l]['rattsfall']:
                     islagrumfor_node = etree.SubElement(
-                        lagrum_node, "rinfo:isLagrumFor")
+                        lagrum_node, ns("rpubl:isLagrumFor"))
                     rattsfall_node = etree.SubElement(
-                        islagrumfor_node, "rdf:Description")
-                    rattsfall_node.set("rdf:about", r['uri'])
-                    id_node = etree.SubElement(rattsfall_node, "dcterms:identifier")
+                        islagrumfor_node, ns("rdf:Description"))
+                    rattsfall_node.set(ns("rdf:about"), r['uri'])
+                    id_node = etree.SubElement(rattsfall_node, ns("dcterms:identifier"))
                     id_node.text = r['id']
                     desc_node = etree.SubElement(
-                        rattsfall_node, "dcterms:description")
+                        rattsfall_node, ns("dcterms:description"))
                     desc_node.text = r['desc']
             if 'inboundlinks' in stuff[l]:
                 inbound = stuff[l]['inboundlinks']
@@ -2810,7 +2805,7 @@ class SFS(Trips):
                     # 1) if the baseuri differs from the previous one,
                     # create a new dcterms:references node
                     if uri != prev_uri:
-                        references_node = etree.Element("dcterms:references")
+                        references_node = etree.Element(ns("dcterms:references"))
                         # 1.1) if the baseuri is the same as the uri
                         # for the law we're generating, place it first
                         if uri == baseuri:
@@ -2836,9 +2831,9 @@ class SFS(Trips):
                         form = "absolute"
 
                     inbound_node = etree.SubElement(
-                        references_node, "rdf:Description")
-                    inbound_node.set("rdf:about", inbound[i]['uri'])
-                    id_node = etree.SubElement(inbound_node, "dcterms:identifier")
+                        references_node, ns("rdf:Description"))
+                    inbound_node.set(ns("rdf:about"), inbound[i]['uri'])
+                    id_node = etree.SubElement(inbound_node, ns("dcterms:identifier"))
                     id_node.text = self.display_title(inbound[i]['uri'], form)
 
                     prev_uri = uri
@@ -2846,27 +2841,24 @@ class SFS(Trips):
             if 'changes' in stuff[l]:
                 for r in stuff[l]['changes']:
                     ischanged_node = etree.SubElement(
-                        lagrum_node, "rinfo:isChangedBy")
+                        lagrum_node, ns("rpubl:isChangedBy"))
                     #rattsfall_node = etree.SubElement(islagrumfor_node, "rdf:Description")
                     # rattsfall_node.set("rdf:about",r['uri'])
-                    id_node = etree.SubElement(ischanged_node, "rinfo:fsNummer")
+                    id_node = etree.SubElement(ischanged_node, ns("rpubl:fsNummer"))
                     id_node.text = r['id']
             if 'desc' in stuff[l]:
-                desc_node = etree.SubElement(lagrum_node, "dcterms:description")
+                desc_node = etree.SubElement(lagrum_node, ns("dcterms:description"))
                 xhtmlstr = "<xht2:div xmlns:xht2='%s'>%s</xht2:div>" % (
                     util.ns['xht2'], stuff[l]['desc'])
                 xhtmlstr = xhtmlstr.replace(
                     ' xmlns="http://www.w3.org/2002/06/xhtml2/"', '')
                 desc_node.append(etree.fromstring(xhtmlstr.encode('utf-8')))
 
-        util.indent_et(root_node)
         # tree = etree.ElementTree(root_node)
         tmpfile = mktemp()
-        treestring = etree.tostring(root_node, encoding="utf-8").replace(
-            ' xmlns:xht2="http://www.w3.org/2002/06/xhtml2/"', '', 1)
-        g = Graph().parse(data=treestring)
-        with self.store.open_annotation(basefile) as fp:
-            fp.write(self.graph(g))
+        treestring = etree.tostring(root_node, encoding="utf-8", pretty_print=True)
+        with self.store.open_annotation(basefile, mode="wb") as fp:
+            fp.write(treestring)
         return self.store.annotation_path(basefile)
 
     def Generate(self, basefile):
@@ -2922,8 +2914,17 @@ class SFS(Trips):
             '%s: OK (%s, %.3f sec)', basefile, outfile, time() - start)
         return
 
+    def _unlocalize_uri(self, uri):
+        # may need to munge https://lagen.nu/2010:1770#K1P2S1 back to
+        # http://rinfo.lagrummet.se/publ/sfs/2010:1770#K1P2S1 since
+        # that's what legalref expects. This is (or should be) the
+        # inverse of SwedishLegalSource.localize_uri()
+        prefix = self.config.url + self.config.urlpath
+        return uri.replace(prefix, "http://rinfo.lagrummet.se/publ/sfs/")
+        
     def display_title(self, uri, form="absolute"):
-        parts = legaluri.parse(uri)
+        # "https://lagen.nu/2010:1770#K1P2S1" => "Lag (2010:1770) om blahonga, 1 kap. 2 § 1 st."
+        parts = legaluri.parse(self._unlocalize_uri(uri))
         res = ""
         for (field, label) in (('chapter', 'kap.'),
                               ('section', '\xa7'),
@@ -2936,11 +2937,13 @@ class SFS(Trips):
 
         if form == "absolute":
             if parts['law'] not in self._document_name_cache:
-                baseuri = legaluri.construct({'type': LegalRef.LAGRUM,
-                                              'law': parts['law']})
-                sq = """PREFIX dcterms:<http://purl.org/dc/terms/>
-                        SELECT ?title WHERE {<%s> dcterms:title ?title }""" % baseuri
-                changes = self._store_select(sq)
+                if "#" in uri:
+                    uri = uri.split("#")[0]
+                store = TripleStore.connect(self.config.storetype,
+                                            self.config.storelocation,
+                                            self.config.storerepository)
+
+                changes = self.store_select(store, "res/sparql/sfs_title.rq", uri, self.dataset_uri())
                 if changes:
                     self._document_name_cache[parts[
                         'law']] = changes[0]['title']
@@ -3009,7 +3012,7 @@ class SFS(Trips):
         fp.close()
         print(("wrote %s" % outfile))
 
-        # list all subjects that are of rdf:type rinfo:KonsolideradGrundforfattning
+        # list all subjects that are of rdf:type rpubl:KonsolideradGrundforfattning
         for subj in by_pred_obj[type_pred][type_obj]:
             fsnr = by_subj_pred[subj][fsnr_pred]
             title = by_subj_pred[subj][title_pred]
