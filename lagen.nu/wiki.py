@@ -10,10 +10,14 @@ from six import text_type as str
 
 # 3rdparty
 from lxml import etree
+from rdflib import Namespace, URIRef, Literal
 
 # mine
 from ferenda import DocumentRepository, DocumentStore
 from ferenda import util
+# from ferenda.sources.general import Keyword
+from keywords import Keyword, LNKeyword
+
 try:
     from ferenda.thirdparty.mw import Parser, Semantics, Settings, Preprocessor
 except ImportError as e:
@@ -23,13 +27,17 @@ except ImportError as e:
     else:
         raise e # dunno
         
-
+import unicodedata
 class MediaWikiStore(DocumentStore):
     def basefile_to_pathfrag(self, basefile):
         return basefile.replace(":", os.sep).replace(" ", "_")
 
     def pathfrag_to_basefile(self, pathfrag):
-        return pathfrag.replace("_", " ").replace(os.sep, ":")
+        # This unicode normalization turns "a" + U+0308 (COMBINING
+        # DIAERESIS) into a honest 'ä'. This is an issue on mac file
+        # systems. FIXME: should this be a part of
+        # DocumentStore.pathfrag_to_basefile?
+        return unicodedata.normalize("NFC", pathfrag.replace("_", " ").replace(os.sep, ":"))
 
 
 class MediaWiki(DocumentRepository):
@@ -52,7 +60,16 @@ class MediaWiki(DocumentRepository):
     alias = "mediawiki"
     downloaded_suffix = ".xml"
     documentstore_class = MediaWikiStore
-
+    rdf_type = Namespace(util.ns['skos']).Concept
+    keyword_class = Keyword
+    
+    def __init__(self, config=None, **kwargs):
+        super(MediaWiki, self).__init__(config, **kwargs)
+        if self.config._parent and hasattr(self.config._parent, 'keyword'):
+            self.keywordrepo = self.keyword_class(self.config._parent.keyword)
+        else:
+            self.keywordrepo = self.keyword_class()
+    
     def get_default_options(self):
         opts = super(MediaWiki, self).get_default_options()
         # The API endpoint URLs change with MW language
@@ -113,6 +130,16 @@ class MediaWiki(DocumentRepository):
     re_anchor = re.compile('<a[^>]*>(.*)</a>', re.DOTALL)
     re_tags = re.compile('(</?[^>]*>)', re.DOTALL)
 
+
+    # NOTE: What is this thing, really? Is it a wiki document by
+    # itself, or is it metadata about a concept identified by a
+    # keyword / label?
+    def parse_metadata_from_soup(self, soup, doc):
+        super(MediaWiki, self).parse_metadata_from_soup(soup, doc)
+        # remove dcterms:identifier because it's pointless
+        doc.meta.remove((URIRef(doc.uri),
+                         self.ns['dcterms'].identifier,
+                         Literal(doc.basefile)))
     
     def parse_document_from_soup(self, soup, doc):
         
@@ -129,9 +156,14 @@ class MediaWiki(DocumentRepository):
                              filename=doc.basefile,
                              semantics=semantics,
                              trace=False)
-
         doc.body = self.postprocess(doc, xhtml)
         return None
+
+    def canonical_uri(self, basefile):
+        # by default, a wiki page is expected to describe a
+        # concept/keyword -- so we use our associated Keyword repo to
+        # find its uri.
+        return self.keywordrepo.canonical_uri(basefile)
 
     def get_wikiparser(self):
         return Parser(parseinfo=False, whitespace='', nameguard=False)
@@ -139,7 +171,7 @@ class MediaWiki(DocumentRepository):
     def get_wikisemantics(self, parser, settings):
         return Semantics(parser, settings)
         
-    def get_wikisettings(self, parser):
+    def get_wikisettings(self):
         return Settings()
 
     def postprocess(self, doc, xhtmltree):
@@ -179,6 +211,15 @@ class MediaWiki(DocumentRepository):
         ts.clear(context=context)
         ts.add_serialized(data, format="xml", context=context)
 
+
+# This is a set of subclasses to regular Wiki and scm.mw classes to
+# customize behaviour. This should be moved out of wiki.py and into a
+# separate subclass, once we have finished customizing.
+
+# from ferenda.sources.legal.se import SFS
+from sfs import SFS
+
+
 class SFSMediaWiki(MediaWiki):
     re_sfs_uri = re.compile('https?://[^/]*lagen.nu/(\d+):(.*)')
     re_dom_uri = re.compile('https?://[^/]*lagen.nu/dom/(.*)')
@@ -188,7 +229,15 @@ class SFSMediaWiki(MediaWiki):
     p = LegalRef(LegalRef.LAGRUM, LegalRef.KORTLAGRUM,
                  LegalRef.FORARBETEN, LegalRef.RATTSFALL)
 
+    keyword_class = LNKeyword
 
+    def __init__(self, config=None, **kwargs):
+        super(SFSMediaWiki, self).__init__(config, **kwargs)
+        if self.config._parent and hasattr(self.config._parent, "sfs"):
+            self.sfsrepo = SFS(self.config._parent.sfs)
+        else:
+            self.sfsrepo = SFS()
+        
     def get_wikisettings(self):
         return SFSSettings()
 
@@ -196,11 +245,12 @@ class SFSMediaWiki(MediaWiki):
         return SFSSemantics(parser, settings)
 
     def canonical_uri(self, basefile):
-        return "%sres/%s/%s" % (self.config.url,
-                                self.alias,
-                                basefile.replace(" ", "_"))
+        if "SFS/" in basefile:
+            # "SFS/1998:204" -> "1998:204"
+            return self.sfsrepo.canonical_uri(basefile[4:])
+        else:
+            return super(SFSMediaWiki, self).canonical_uri(basefile)
         
-
     def postprocess(self, doc, xhtmltree):
 #        # find out the URI that this wikitext describes
 #        if doc.basefile.startswith("SFS/"):
@@ -296,7 +346,6 @@ class SFSMediaWiki(MediaWiki):
 #                    res = res.replace(marker, replacement)
 #
 #                current.append(etree.fromstring(res.encode('utf-8')))
-
         return super(SFSMediaWiki, self).postprocess(doc, xhtmltree)
 
 
