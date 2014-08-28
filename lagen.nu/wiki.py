@@ -15,6 +15,7 @@ from rdflib import Namespace, URIRef, Literal
 # mine
 from ferenda import DocumentRepository, DocumentStore
 from ferenda import util
+from ferenda.sources.legal.se import SwedishCitationParser
 # from ferenda.sources.general import Keyword
 from keywords import Keyword, LNKeyword
 
@@ -144,13 +145,13 @@ class MediaWiki(DocumentRepository):
     def parse_document_from_soup(self, soup, doc):
         
         wikitext = soup.find("text").text
-        
         parser = self.get_wikiparser()
         settings = self.get_wikisettings()
         semantics = self.get_wikisemantics(parser, settings)
+        preprocessor = self.get_wikipreprocessor(settings)
         
-        # a little unsure about what Preprocessor.expand actually DOES...
-        wikitext = Preprocessor().expand(doc.basefile, wikitext)
+        # the main responsibility of the preprocessor is to expand templates
+        wikitext = preprocessor.expand(doc.basefile, wikitext)
 
         xhtml = parser.parse(wikitext, "document",
                              filename=doc.basefile,
@@ -169,22 +170,49 @@ class MediaWiki(DocumentRepository):
         return Parser(parseinfo=False, whitespace='', nameguard=False)
 
     def get_wikisemantics(self, parser, settings):
-        return Semantics(parser, settings)
+        return WikiSemantics(parser, settings)
         
     def get_wikisettings(self):
-        return Settings()
+        return WikiSettings(lang=self.lang)
 
-    def postprocess(self, doc, xhtmltree):
+    def get_wikipreprocessor(self, settings):
+        return WikiPreprocessor(settings)
+
+    def postprocess(self, doc, xhtmltree, toplevel_property=True):
+        body = xhtmltree.getchildren()[0]
+        # render_xhtml_tree will add @about
+        if toplevel_property:
+            # shouldn't add these in SFS mode
+            body.set("property", "dcterms:description")
+            body.set("datatype", "rdf:XMLLiteral")
+        # find any links that indicate that this concept has the
+        # dcterms:subject of something (typically indicated by
+        # Category tags)
+        for subjectlink in xhtmltree.findall(".//a[@rel='dcterms:subject']"):
+            # add metadata
+            doc.meta.add((URIRef(doc.uri),
+                          self.ns['dcterms'].subject,
+                          URIRef(subjectlink.get("href"))))
+            # remove from tree
+            parent = subjectlink.getparent()
+            parent.remove(subjectlink)
+            # if the containing element is empty, remove as well
+            if not (len(parent) or
+                    parent.text or
+                    parent.tail):
+                parent.getparent().remove(parent)
+        
         # convert xhtmltree to a ferenda.Elements tree
         root = self.elements_from_node(xhtmltree)
         return root[0]
 
+        
     def elements_from_node(self, node):
         
         from ferenda.elements.html import _tagmap
         assert node.tag in _tagmap
         element = _tagmap[node.tag](**node.attrib)
-        if node.text:
+        if node.text and node.text.strip():
             element.append(str(node.text))
         for child in node:
             if isinstance(child, str):
@@ -193,11 +221,9 @@ class MediaWiki(DocumentRepository):
                 subelement = self.elements_from_node(child)
                 if subelement: # != None? 
                     element.append(subelement)
-                if child.tail:
+                if child.tail and child.tail.strip():
                     element.append(str(child.tail))
         return element
-
-        
 
     # differ from the default relate_triples in that it uses a different
     # context for every basefile and clears this beforehand.
@@ -212,6 +238,29 @@ class MediaWiki(DocumentRepository):
         ts.add_serialized(data, format="xml", context=context)
 
 
+class WikiSemantics(Semantics):
+    def internal_link(self, ast):
+        el = super(WikiSemantics, self).internal_link(ast)
+        target = "".join(ast.target).strip()
+        name = self.settings.canonical_page_name(target)
+        if name[0].prefix == 'category':
+            el.set("rel", "dcterms:subject")
+        return el
+
+
+class WikiSettings(Settings):
+    def make_url(self, name, **kwargs):
+        uri = super(WikiSettings, self).make_url(name, **kwargs)
+        return uri
+
+class WikiPreprocessor(Preprocessor):
+    def get_template(self, namespace, pagename):
+        if namespace.prefix != "template":
+            return None
+        tmpl = self.settings.templates.get((namespace.prefix, pagename), None)
+        return tmpl
+
+    
 # This is a set of subclasses to regular Wiki and scm.mw classes to
 # customize behaviour. This should be moved out of wiki.py and into a
 # separate subclass, once we have finished customizing.
@@ -231,260 +280,122 @@ class SFSMediaWiki(MediaWiki):
 
     keyword_class = LNKeyword
 
+    lang = "sv"
+    
     def __init__(self, config=None, **kwargs):
         super(SFSMediaWiki, self).__init__(config, **kwargs)
         if self.config._parent and hasattr(self.config._parent, "sfs"):
             self.sfsrepo = SFS(self.config._parent.sfs)
         else:
             self.sfsrepo = SFS()
-        
+
     def get_wikisettings(self):
-        return SFSSettings()
+        settings = SFSSettings(lang=self.lang)
+        # NOTE: The settings object (the make_url method) only needs
+        # access to the canonical_uri method.
+        settings.make_sfs_url = self.sfsrepo.canonical_uri
+        settings.make_keyword_url = self.keywordrepo.canonical_uri
+        return settings
 
     def get_wikisemantics(self, parser, settings):
         return SFSSemantics(parser, settings)
 
     def canonical_uri(self, basefile):
-        if "SFS/" in basefile:
+        if basefile.startswith("SFS/") or basefile.startswith("SFS:"):
             # "SFS/1998:204" -> "1998:204"
             return self.sfsrepo.canonical_uri(basefile[4:])
         else:
             return super(SFSMediaWiki, self).canonical_uri(basefile)
         
     def postprocess(self, doc, xhtmltree):
-#        # find out the URI that this wikitext describes
-#        if doc.basefile.startswith("SFS/"):
-#            sfs_basefile = basefile.split("/", 1)[1]
-#            # FIXME: our parse() needs access to a correctly
-#            # configured SFS object (with it's self.config.url +
-#            # self.config.urlpath). We could dig around in like
-#            # self.config._parent.sfs for settings and instantiate it
-#            # ourselves, but...
-#            uri = "https://lagen.nu/%s" % sfs_basefile
-#            rdftype = None
-#        else:
-#            # FIXME: we should try to get hold of a configured
-#            # ferenda.sources.general.keywords object (or any subclass
-#            # thereof...)
-#            uri = "http://lagen.nu/begrepp/" + doc.basefile.replace(" ", "_")
-#            rdftype = self.ns['skos'].Concept
-#
-#        if rdftype:
-#            body.set("typeof", "skos:Concept")
-#            heading = etree.SubElement(body, "h")
-#            heading.set("property", "rdfs:label")
-#            heading.text = doc.basefile
-#
-#        main = etree.SubElement(body, "div")
-#        main.set("property", "dcterms:description")
-#        main.set("datatype", "rdf:XMLLiteral")
-#        current = main
-#        currenturi = uri
-#
-#        for child in xhtmltree:
-#            if not rdftype and child.tag in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
-#                nodes = p.parse(child.text, uri)
-#                try:
-#                    suburi = nodes[0].uri
-#                    currenturi = suburi
-#                    self.log.debug("    Sub-URI: %s" % suburi)
-#                    h = etree.SubElement(body, child.tag)
-#                    h.text = child.text
-#                    current = etree.SubElement(body, "div")
-#                    current.set("about", suburi)
-#                    current.set("property", "dcterms:description")
-#                    current.set("datatype", "rdf:XMLLiteral")
-#                except AttributeError:
-#                    self.log.warning(
-#                        '%s är uppmärkt som en rubrik, men verkar inte vara en lagrumshänvisning' % child.text)
-#            else:
-#                serialized = etree.tostring(child, 'utf-8').decode('utf-8')
-#                separator = ""
-#                while separator in serialized:
-#                    separator = "".join(
-#                        random.sample("ABCDEFGHIJKLMNOPQRSTUVXYZ", 6))
-#
-#                markers = {}
-#                res = ""
-#                # replace all whole <a> elements with markers, then
-#                # replace all other tags with markers
-#                for (regex, start) in ((self.re_anchors, '<a'),
-#                                      (self.re_tags, '<')):
-#                    for match in re.split(regex, serialized):
-#                        if match.startswith(start):
-#                            marker = "{%s-%d}" % (separator, len(markers))
-#                            markers[marker] = match
-#                            res += marker
-#                        else:
-#                            res += match
-#                    serialized = res
-#                    res = ""
-#
-#                # Use LegalRef to parse references, then rebuild a
-#                # unicode string.
-#                parts = p.parse(serialized, currenturi)
-#                for part in parts:
-#                    if isinstance(part, Link):
-#                        res += '<a class="lr" href="%s">%s</a>' % (
-#                            part.uri, part)
-#                    else:  # just a text fragment
-#                        res += part
-#
-#                # restore the replaced markers
-#                for marker, replacement in list(markers.items()):
-#                    # print "%s: '%s'" % (marker,util.normalize_space(replacement))
-#                    # normalize URIs, and remove 'empty' links
-#                    if 'href="https://lagen.nu/"' in replacement:
-#                        replacement = self.re_anchor.sub('\\1', replacement)
-#                    elif self.re_sfs_uri.search(replacement):
-#                        replacement = self.re_sfs_uri.sub(
-#                            'http://rinfo.lagrummet.se/publ/sfs/\\1:\\2', replacement)
-#                    elif self.re_dom_uri.search(replacement):
-#                        replacement = self.re_dom_uri.sub(
-#                            'http://rinfo.lagrummet.se/publ/rattsfall/\\1', replacement)
-#                    # print "%s: '%s'" % (marker,util.normalize_space(replacement))
-#                    res = res.replace(marker, replacement)
-#
-#                current.append(etree.fromstring(res.encode('utf-8')))
-        return super(SFSMediaWiki, self).postprocess(doc, xhtmltree)
+        # if SFS mode:
+        # create a div for root content
+        # find all headers, create div for everything there
+        if doc.basefile.startswith("SFS/") or doc.basefile.startswith("SFS:"):
+            self.postprocess_commentary(doc, xhtmltree)
+            toplevel_property = False
+        else:
+            toplevel_property = True
+        body = super(SFSMediaWiki, self).postprocess(doc, xhtmltree,
+                                                     toplevel_property=toplevel_property)
+        citparser = SwedishCitationParser(self.p, self.config.url)
+        citparser.parse_recursive(body, predicate=None)
+        return body
+        
+    def postprocess_commentary(self, doc, xhtmltree):
+        uri = doc.uri
+        body = xhtmltree.getchildren()[0]
+        newbody = etree.Element("body")
 
+        curruri = uri
+        currdiv = etree.SubElement(newbody, "div")
+        currdiv.set("about", curruri)
+        currdiv.set("property", "dcterms:description")
+        currdiv.set("datatype", "rdf:XMLLiteral")
+        for child in body.getchildren():
+            if child.tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
+                # remove that <span> element that Semantics._h_el adds for us
+                child.text = child[0].text
+                child.remove(child[0])
+                nodes = self.p.parse(child.text, curruri)
+                curruri = nodes[0].uri
+                # body.remove(child)
+                newbody.append(child) 
+                currdiv = etree.SubElement(newbody, "div")
+                currdiv.set("about", curruri)
+                currdiv.set("property", "dcterms:description")
+                currdiv.set("datatype", "rdf:XMLLiteral")
+            else:
+                # body.remove(child)
+                currdiv.append(child)
+        xhtmltree.remove(body)
+        xhtmltree.append(newbody)
+        
 
-class SFSSemantics(Semantics):
+class SFSSemantics(WikiSemantics):
     def internal_link(self, ast):
         el = super(SFSSemantics, self).internal_link(ast)
         return el
 
+
+class SFSSettings(WikiSettings):
+    def __init__(self, lang="en"):
+        super(SFSSettings, self).__init__(lang)
+        from ferenda.thirdparty.mw.settings import Namespace as MWNamespace
+        template_ns = MWNamespace({"prefix": "template",
+                                   "ident": 10,
+                                   "name": {"en": "Template",
+                                            "de": "Vorlage",
+                                            "sv": "Mall"}})
+        self.namespaces.add(MWNamespace({"prefix": "category",
+                                         "ident": 14,
+                                         "name": {"en": "Category",
+                                                  "de": "Kategorie",
+                                                  "sv": "Kategori"}}))
+        self.namespaces.add(template_ns)
+        self.namespaces.add(MWNamespace({"prefix": "user",
+                                         "ident": 2,
+                                         "name": {"en": "User",
+                                                  "de": "Benutzer",
+                                                  "sv": "Användare"}}))
+        self.msgcat["toc"]["sv"] = "Innehåll"
+        self.templates = {("template", "TranslatedAct"):
+                          "\n<small>[{{{href}}} An unofficial translation of "
+                          "{{{actname}}} is available from "
+                          "{{{source}}}]</small>\n"}
         
-class SFSSettings(Settings):
     def make_url(self, name, **kwargs):
-        uri = super(SFSSettings, self).make_url(name, **kwargs)
+        # uri = super(SFSSettings, self).make_url(name, **kwargs)
+        if name[1].startswith("SFS/"):
+            uri = self.make_sfs_url(name[1][4:])
+        else:
+            if name[0].prefix == "user":
+                uri = "https://lagen.nu/wiki/%s"% self.expand_page_name(*name)
+            else:
+                uri = self.make_keyword_url(name[1])
         return uri
         
-
-# class LinkedWikimarkup(wikimarkup.Parser):
-class LinkedWikimarkup(object):
-    def __init__(self, show_toc=True):
-        super(wikimarkup.Parser, self).__init__()
-        self.show_toc = show_toc
-
-    def parse(self, text):
-        # print "Running subclassed parser!"
-        utf8 = isinstance(text, str)
-        text = wikimarkup.to_unicode(text)
-        if text[-1:] != '\n':
-            text = text + '\n'
-            taggedNewline = True
-        else:
-            taggedNewline = False
-
-        text = self.strip(text)
-        text = self.removeHtmlTags(text)
-        text = self.doTableStuff(text)
-        text = self.parseHorizontalRule(text)
-        text = self.checkTOC(text)
-        text = self.parseHeaders(text)
-        text = self.parseAllQuotes(text)
-        text = self.replaceExternalLinks(text)
-        if not self.show_toc and text.find("<!--MWTOC-->") == -1:
-            self.show_toc = False
-        text = self.formatHeadings(text, True)
-        text = self.unstrip(text)
-        text = self.fixtags(text)
-        text = self.replaceRedirect(text)
-        text = self.doBlockLevels(text, True)
-        text = self.unstripNoWiki(text)
-        text = self.replaceImageLinks(text)
-        text = self.replaceCategories(text)
-        text = self.replaceAuthorLinks(text)
-        text = self.replaceWikiLinks(text)
-        text = self.removeTemplates(text)
-
-        text = text.split('\n')
-        text = '\n'.join(text)
-        if taggedNewline and text[-1:] == '\n':
-            text = text[:-1]
-        if utf8:
-            return text.encode("utf-8")
-        return text
-
-    re_labeled_wiki_link = re.compile(r'\[\[([^\]]*?)\|(.*?)\]\](\w*)')
-                                      # is the trailing group really needed?
-    re_wiki_link = re.compile(r'\[\[([^\]]*?)\]\](\w*)')
-    re_img_uri = re.compile('(https?://[\S]+\.(png|jpg|gif))')
-    re_template = re.compile(r'{{[^}]*}}')
-    re_category_wiki_link = re.compile(r'\[\[Kategori:([^\]]*?)\]\]')
-    re_inline_category_wiki_link = re.compile(
-        r'\[\[:Kategori:([^\]]*?)\|(.*?)\]\]')
-    re_image_wiki_link = re.compile(r'\[\[Fil:([^\]]*?)\s*\]\]')
-    re_author_wiki_link = re.compile(r'\[\[(Användare:[^\]]+?)\|(.*?)\]\]')
-
-    def capitalizedLink(self, m):
-        if m.group(1).startswith('SFS/'):
-            uri = 'http://rinfo.lagrummet.se/publ/%s' % m.group(1).lower()
-        else:
-            uri = 'http://lagen.nu/concept/%s' % util.ucfirst(
-                m.group(1)).replace(' ', '_')
-
-        if len(m.groups()) == 3:
-            # lwl = "Labeled WikiLink"
-            return '<a class="lwl" href="%s">%s%s</a>' % (uri, m.group(2), m.group(3))
-        else:
-            return '<a class="wl" href="%s">%s%s</a>' % (uri, m.group(1), m.group(2))
-
-    def categoryLink(self, m):
-        uri = 'http://lagen.nu/concept/%s' % util.ucfirst(
-            m.group(1)).replace(' ', '_')
-
-        if len(m.groups()) == 2:
-            # lcwl = "Labeled Category WikiLink"
-            return '<a class="lcwl" href="%s">%s</a>' % (uri, m.group(2))
-        else:
-            # cwl = "Category wikilink"
-            return '<a class="cwl" href="%s">%s</a>' % (uri, m.group(1))
-
-    def hiddenLink(self, m):
-        uri = 'http://lagen.nu/concept/%s' % util.ucfirst(
-            m.group(1)).replace(' ', '_')
-        return '<a class="hcwl" rel="dcterms:subject" href="%s"/>' % uri
-
-    def imageLink(self, m):
-        uri = 'http://wiki.lagen.nu/images/%s' % m.group(1).strip()
-        return '<img class="iwl" src="%s" />' % uri
-
-    def authorLink(self, m):
-        uri = 'http://wiki.lagen.nu/index.php/%s' % util.ucfirst(
-            m.group(1)).replace(' ', '_')
-        return '<a class="awl" href="%s">%s</a>' % (uri, m.group(2))
-
-    def replaceWikiLinks(self, text):
-        # print "replacing wiki links: %s" % text[:30]
-        text = self.re_labeled_wiki_link.sub(self.capitalizedLink, text)
-        text = self.re_wiki_link.sub(self.capitalizedLink, text)
-        return text
-
-    def replaceImageLinks(self, text):
-        # emulates the parser when using$ wgAllowExternalImages
-        text = self.re_img_uri.sub('<img src="\\1"/>', text)
-        # handle links like [[Fil:SOU_2003_99_s117.png]]
-        text = self.re_image_wiki_link.sub(self.imageLink, text)
-        return text
-
-    def replaceAuthorLinks(self, text):
-        # links to author descriptions should point directly to the wiki
-        return self.re_author_wiki_link.sub(self.authorLink, text)
-
-    def removeTemplates(self, text):
-        # removes all usage of templates ("{{DISPLAYTITLE:Avtalslagen}}" etc)
-        return self.re_template.sub('', text)
-
-    def replaceCategories(self, text):
-        # inline links ("Inom [[:Kategori:Allmän avtalsrätt|Allmän avtalsrätt]] studerar man...")
-        text = self.re_inline_category_wiki_link.sub(self.categoryLink, text)
-        # Normal category links - replace these with hidden RDFa typed links
-        text = self.re_category_wiki_link.sub(self.hiddenLink, text)
-        return text
-
-    re_redirect = re.compile("^#REDIRECT ")
-
-    def replaceRedirect(self, text):
-        return self.re_redirect.sub("Se ", text)
+#    def expand_page_name(self, namespace, pagename):
+#        from pudb import set_trace; set_trace()
+#        return super(SFSSettings, self).expand_page_name(namespace, pagename)
+    

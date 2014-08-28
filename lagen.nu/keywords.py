@@ -35,8 +35,8 @@ class Keyword(DocumentRepository):
     alias = "keyword"
     downloaded_suffix = ".txt"
 
-    def __init__(self, **kwargs):
-        super(Keyword, self).__init__(**kwargs)
+    def __init__(self, config=None, **kwargs):
+        super(Keyword, self).__init__(config, **kwargs)
         # extra functions -- subclasses can add / remove from this
         self.termset_funcs = [self.download_termset_mediawiki,
                               self.download_termset_wikipedia]
