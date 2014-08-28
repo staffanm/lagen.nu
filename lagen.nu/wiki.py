@@ -7,6 +7,7 @@ import random
 import re
 import os
 from six import text_type as str
+from six import binary_type as bytes
 
 # 3rdparty
 from lxml import etree
@@ -201,7 +202,7 @@ class MediaWiki(DocumentRepository):
                     parent.text or
                     parent.tail):
                 parent.getparent().remove(parent)
-        
+
         # convert xhtmltree to a ferenda.Elements tree
         root = self.elements_from_node(xhtmltree)
         return root[0]
@@ -219,7 +220,7 @@ class MediaWiki(DocumentRepository):
                 element.append(str(child))
             else:
                 subelement = self.elements_from_node(child)
-                if subelement: # != None? 
+                if subelement is not None:
                     element.append(subelement)
                 if child.tail and child.tail.strip():
                     element.append(str(child.tail))
@@ -270,8 +271,6 @@ from sfs import SFS
 
 
 class SFSMediaWiki(MediaWiki):
-    re_sfs_uri = re.compile('https?://[^/]*lagen.nu/(\d+):(.*)')
-    re_dom_uri = re.compile('https?://[^/]*lagen.nu/dom/(.*)')
 
     from ferenda.sources.legal.se.legalref import LegalRef
     
@@ -335,10 +334,16 @@ class SFSMediaWiki(MediaWiki):
         for child in body.getchildren():
             if child.tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
                 # remove that <span> element that Semantics._h_el adds for us
+                assert child[0].tag == "span", "Header subelement was %s not span" % child[0].tag
                 child.text = child[0].text
                 child.remove(child[0])
-                nodes = self.p.parse(child.text, curruri)
-                curruri = nodes[0].uri
+                if child.text:
+                    if isinstance(child.text, bytes):
+                        txt = child.text.decode("utf-8")
+                    else:
+                        txt = child.text
+                    nodes = self.p.parse(txt, curruri)
+                    curruri = nodes[0].uri
                 # body.remove(child)
                 newbody.append(child) 
                 currdiv = etree.SubElement(newbody, "div")
