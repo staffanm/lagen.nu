@@ -3,19 +3,34 @@ from __future__ import unicode_literals
 
 # system libraries
 import re
+import os
 from collections import defaultdict
 from time import time
 
 # 3rdparty libs
+import pkg_resources
 import requests
 from lxml import etree
+from lxml.builder import ElementMaker
+from rdflib import Literal
 
 # my libs
 from ferenda import util
-from ferenda import DocumentRepository, TripleStore
+from ferenda import DocumentRepository, TripleStore, DocumentStore, Describer
 from ferenda.decorators import managedparsing
+from ferenda.elements import Body
 
 MW_NS = "{http://www.mediawiki.org/xml/export-0.3/}"
+
+
+class KeywordStore(DocumentStore):
+    def basefile_to_pathfrag(self, basefile):
+        first = basefile[0].lower()
+        return "%s/%s" % (first, basefile)
+
+    def pathfrag_to_basefile(self, pathfrag):
+        first, basefile = pathfrag.split("/", 1)
+        return basefile
 
 
 class Keyword(DocumentRepository):
@@ -34,7 +49,8 @@ class Keyword(DocumentRepository):
     """  # FIXME be more comprehensible
     alias = "keyword"
     downloaded_suffix = ".txt"
-
+    documentstore_class = KeywordStore
+    
     def __init__(self, config=None, **kwargs):
         super(Keyword, self).__init__(config, **kwargs)
         # extra functions -- subclasses can add / remove from this
@@ -48,7 +64,7 @@ class Keyword(DocumentRepository):
         opts['wikipediatitles'] = 'http://download.wikimedia.org/svwiki/latest/svwiki-latest-all-titles-in-ns0.gz'
         return opts
 
-    def download(self):
+    def download(self, basefile=None):
         # Get all "term sets" (used dcterms:subject Objects, wiki pages
         # describing legal concepts, swedish wikipedia pages...)
         terms = defaultdict(dict)
@@ -59,11 +75,13 @@ class Keyword(DocumentRepository):
         # from both court cases and legal definitions in law text)
         sq = """
         PREFIX dcterms:<http://purl.org/dc/terms/>
+        PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
 
-        SELECT DISTINCT ?subject ?label { {?uri dcterms:subject ?subject } 
-                                          OPTIONAL {?subject rdfs:label ?label} }
+        SELECT DISTINCT ?subject ?label
+        WHERE { {?uri dcterms:subject ?subject . } 
+                OPTIONAL {?subject rdfs:label ?label . } }
         """
-        store = store = TripleStore(self.config.storetype,
+        store = TripleStore.connect(self.config.storetype,
                                     self.config.storelocation,
                                     self.config.storerepository)
         results = store.select(sq, "python")
@@ -72,9 +90,10 @@ class Keyword(DocumentRepository):
                 label = row['label']
             else:
                 label = self.basefile_from_uri(row['subject'])
-            terms[subj]['subjects'] = True
+            if len(label) < 100:  # sanity, no legit keyword is 100 chars
+                terms[label]['subjects'] = True
 
-        self.log.debug("Retrieved subject terms from triplestore" % len(terms))
+        self.log.debug("Retrieved %s subject terms from triplestore" % len(terms))
 
         for termset_func in self.termset_funcs:
             termset_func(terms)
@@ -82,9 +101,10 @@ class Keyword(DocumentRepository):
         for term in terms:
             if not term:
                 continue
+            self.log.info("%s: in %s termsets" % (term, len(terms[term])))
             with self.store.open_downloaded(term, "w") as fp:
                 for termset in sorted(terms[term]):
-                    f.write(termset + "\n")
+                    fp.write(termset + "\n")
 
     def download_termset_mediawiki(self, terms):
         # 2) Download the wiki.lagen.nu dump from
@@ -128,154 +148,83 @@ class Keyword(DocumentRepository):
 
     @managedparsing
     def parse(self, doc):
-        # for a base name (term), create a skeleton xht2 file
-        # containing a element of some kind for each term set this
-        # term occurs in.
-        baseuri = self.canonical_uri(doc.basefile)
-        with self.store.open_downloaded(doc.basefile) as fp:
-            termsets = fp.readlines()
-
-        root = etree.Element("html")
-        root.set("xml:base", baseuri)
-        root.set("xmlns", 'http://www.w3.org/2002/06/xhtml2/')
-        root.set("xmlns:dcterms", util.ns['dcterms'])
-        head = etree.SubElement(root, "head")
-        title = etree.SubElement(head, "title")
-        title.text = doc.basefile
-        body = etree.SubElement(root, "body")
-        heading = etree.SubElement(body, "h")
-        heading.set("property", "dcterms:title")
-        heading.text = doc.basefile
-        if 'wikipedia\n' in termsets:
-            p = etree.SubElement(body, "p")
-            p.attrib['class'] = 'wikibox'
-            p.text = 'Begreppet '
-            a = etree.SubElement(p, "a")
-            a.attrib['href'] = 'http://sv.wikipedia.org/wiki/' + \
-                doc.basefile.replace(" ", "_")
-            a.text = doc.basefile
-            a.tail = ' finns även beskrivet på '
-            a = etree.SubElement(p, "a")
-            a.attrib['href'] = 'http://sv.wikipedia.org/'
-            a.text = 'svenska Wikipedia'
-
-        # FIXME: translate this to ferenda.elements, set doc.body to it
-        doc.body = etree.tostring(root, encoding='utf-8')
+        # create a dummy txt
+        d = Describer(doc.meta, doc.uri)
+        d.rdftype(self.rdf_type)
+        d.value(self.ns['dcterms'].title, Literal(doc.basefile, lang=doc.lang))
+        d.value(self.ns['prov'].wasGeneratedBy, self.qualified_class_name())
+        doc.body = Body()  # can be empty, all content in doc.meta
         return True
-        
 
     re_tagstrip = re.compile(r'<[^>]*>')
+
+    # FIXME: This is copied verbatim from sfs.py -- maybe it could go
+    # into DocumentRepository or util? (or possibly triplestore?)
+    def store_select(self, store, query_template, uri, context=None):
+        if os.path.exists(query_template):
+            fp = open(query_template, 'rb')
+        elif pkg_resources.resource_exists('ferenda', query_template):
+            fp = pkg_resources.resource_stream('ferenda', query_template)
+        else:
+            raise ValueError("query template %s not found" % query_template)
+        params = {'uri': uri}
+        sq = fp.read().decode('utf-8') % params
+        fp.close()
+        return store.select(sq, "python")
 
     # FIXME: translate this to be consistent with construct_annotations
     # (e.g. return a RDF graph through one or a few SPARQL queries),
     # not a XML monstrosity
-    def construct_annotations(self, uri):
-        start = time()
-        keyword = basefile.split("/", 1)[1]
-        # note: infile is e.g. parsed/K/Konsument.xht2, but outfile is generated/Konsument.html
-        infile = util.relpath(self._xmlFileName(basefile))
-        outfile = util.relpath(self._htmlFileName(keyword))
+    def prep_annotation_file(self, basefile):
+        uri = self.canonical_uri(basefile)
+        keyword = basefile
+        store = TripleStore.connect(self.config.storetype,
+                                    self.config.storelocation,
+                                    self.config.storerepository)
 
         # Use SPARQL queries to create a rdf graph (to be used by the
-        # xslt transform) containing enough information about all
-        # cases using this term, as well as the wiki authored
+        # xslt transform) containing the wiki authored
         # dcterms:description for this term.
 
-        # For proper SPARQL escaping, we need to change å to \u00E5
-        # etc (there probably is a neater way of doing this).
-        esckeyword = ''
-        for c in keyword:
-            if ord(c) > 127:
-                esckeyword += '\\u%04X' % ord(c)
-            else:
-                esckeyword += c
+        values = {'basefile': basefile,
+                  'count': None}
+        msg = ("%(basefile)s: selected %(count)s descriptions "
+               "(%(elapsed).3f sec)")
+        with util.logtime(self.log.debug,
+                          msg,
+                          values):
+            wikidesc = self.store_select(store,
+                                         "res/sparql/keyword_subjects.rq",
+                                         uri)
+            values['count'] = len(wikidesc)
 
-        escuri = keyword_to_uri(esckeyword)
 
-        sq = """
-PREFIX dcterms:<http://purl.org/dc/terms/>
-PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
-PREFIX rinfo:<http://rinfo.lagrummet.se/taxo/2007/09/rinfo/pub#>
+        # FIXME: these other sources of keyword annotations should be
+        # handled by subclasses
+        dvdataset = "http://localhost:8000/dataset/dv"
+        sfsdataset = "http://localhost:8000/dataset/dv"
 
-SELECT ?desc
-WHERE { ?uri dcterms:description ?desc . ?uri rdfs:label "%s"@sv }
-""" % esckeyword
-        wikidesc = self._store_select(sq)
-        log.debug('%s: Selected %s descriptions (%.3f sec)',
-                  basefile, len(wikidesc), time() - start)
+        msg = ("%(basefile)s: selected %(count)s legaldefs "
+               "(%(elapsed).3f sec)")
+        with util.logtime(self.log.debug,
+                          msg,
+                          values):
+            legaldefinitioner = self.store_select(store,
+                                                  "res/sparql/keyword_sfs.rq",
+                                                  uri, sfsdataset)
+            values['count'] = len(wikidesc)
 
-        sq = """
-PREFIX dcterms:<http://purl.org/dc/terms/>
-PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
-PREFIX rinfo:<http://rinfo.lagrummet.se/taxo/2007/09/rinfo/pub#>
-
-SELECT DISTINCT ?uri ?label
-WHERE {
-    GRAPH <urn:x-local:sfs> {
-       { ?uri dcterms:subject <%s> .
-         ?baseuri dcterms:title ?label .
-         ?uri dcterms:isPartOf ?x . ?x dcterms:isPartOf ?baseuri
-       }
-       UNION {
-         ?uri dcterms:subject <%s> .
-         ?baseuri dcterms:title ?label .
-         ?uri dcterms:isPartOf ?x . ?x dcterms:isPartOf ?y . ?y dcterms:isPartOf ?baseuri
-       }
-       UNION {
-         ?uri dcterms:subject <%s> .
-         ?baseuri dcterms:title ?label .
-         ?uri dcterms:isPartOf ?x . ?x dcterms:isPartOf ?y . ?x dcterms:isPartOf ?z . ?z dcterms:isPartOf ?baseuri
-       }
-       UNION {
-         ?uri dcterms:subject <%s> .
-         ?baseuri dcterms:title ?label .
-         ?uri dcterms:isPartOf ?x . ?x dcterms:isPartOf ?y . ?x dcterms:isPartOf ?z . ?z dcterms:isPartOf ?w . ?w dcterms:isPartOf ?baseuri
-       }
-    }
-}
-
-""" % (escuri, escuri, escuri, escuri)
-        # print sq
-        legaldefinitioner = self._store_select(sq)
-        log.debug('%s: Selected %d legal definitions (%.3f sec)',
-                  basefile, len(legaldefinitioner), time() - start)
-
-        sq = """
-PREFIX dcterms:<http://purl.org/dc/terms/>
-PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
-PREFIX rinfo:<http://rinfo.lagrummet.se/taxo/2007/09/rinfo/pub#>
-PREFIX rinfoex:<http://lagen.nu/terms#>
-
-SELECT ?uri ?id ?desc
-WHERE {
-    {
-        GRAPH <urn:x-local:dv> {
-            {
-                ?uri dcterms:description ?desc .
-                ?uri dcterms:identifier ?id .
-                ?uri dcterms:subject <%s>
-            }
-            UNION {
-                ?uri dcterms:description ?desc .
-                ?uri dcterms:identifier ?id .
-                ?uri dcterms:subject "%s"@sv
-            }
-        }
-    } UNION {
-        GRAPH <urn:x-local:arn> {
-                ?uri dcterms:description ?desc .
-                ?uri rinfoex:arendenummer ?id .
-                ?uri dcterms:subject "%s"@sv
-        }
-    }
-}
-""" % (escuri, esckeyword, esckeyword)
+        msg = ("%(basefile)s: selected %(count)s legalcases"
+               "(%(elapsed).3f sec)")
+        with util.logtime(self.log.debug,
+                          msg,
+                          values):
+            rattsfall = self.store_select(store,
+                                          "res/sparql/keyword_dv.rq",
+                                          uri, dvdataset)
+            values['count'] = len(rattsfall)
 
         # Maybe we should handle <urn:x-local:arn> triples here as well?
-
-        rattsfall = self._store_select(sq)
-        log.debug('%s: Selected %d legal cases (%.3f sec)',
-                  basefile, len(rattsfall), time() - start)
 
         root_node = etree.Element("rdf:RDF")
         for prefix in util.ns:
@@ -283,7 +232,7 @@ WHERE {
             root_node.set("xmlns:" + prefix, util.ns[prefix])
 
         main_node = etree.SubElement(root_node, "rdf:Description")
-        main_node.set("rdf:about", keyword_to_uri(keyword))
+        main_node.set("rdf:about", uri)
 
         for d in wikidesc:
             desc_node = etree.SubElement(main_node, "dcterms:description")
@@ -310,11 +259,9 @@ WHERE {
             # id_node.text = "%s %s" % (l['uri'].split("#")[1], l['label'])
             id_node.text = self.sfsmgr.display_title(l['uri'])
 
-        # FIXME: construct graph
-        return graph
-
-class LNKeyword(Keyword):
-    def canonical_uri(self, basefile):
-        # FIXME: make configurable like SFS.canonical_uri
-        return "https://lagen.nu/concept/%s" % basefile.replace(" ", "_")
-        
+        treestring = etree.tostring(root_node,
+                                    encoding="utf-8",
+                                    pretty_print=True)
+        with self.store.open_annotation(basefile, mode="wb") as fp:
+            fp.write(treestring)
+        return self.store.annotation_path(basefile)

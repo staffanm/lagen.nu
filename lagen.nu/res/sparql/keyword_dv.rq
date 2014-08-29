@@ -1,0 +1,28 @@
+PREFIX dcterms:<http://purl.org/dc/terms/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rinfo:<http://rinfo.lagrummet.se/taxo/2007/09/rinfo/pub#>
+PREFIX rinfoex:<http://lagen.nu/terms#>
+
+SELECT ?uri ?id ?desc
+WHERE {
+    {
+        GRAPH <urn:x-local:dv> {
+            {
+                ?uri dcterms:description ?desc .
+                ?uri dcterms:identifier ?id .
+                ?uri dcterms:subject <%(uri)s>
+            }
+            UNION {
+                ?uri dcterms:description ?desc .
+                ?uri dcterms:identifier ?id .
+                ?uri dcterms:subject "%(uri)s"@sv
+            }
+        }
+    } UNION {
+        GRAPH <urn:x-local:arn> {
+                ?uri dcterms:description ?desc .
+                ?uri rinfoex:arendenummer ?id .
+                ?uri dcterms:subject "%(uri)s"@sv
+        }
+    }
+}

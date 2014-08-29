@@ -25,6 +25,7 @@ from six import text_type as str
 from ferenda.compat import OrderedDict
 
 # 3rdparty libs
+import pkg_resources
 from rdflib import Namespace, URIRef, Literal
 from lxml import etree
 from lxml.builder import ElementMaker
@@ -2855,7 +2856,6 @@ class SFS(Trips):
                 desc_node.append(etree.fromstring(xhtmlstr.encode('utf-8')))
 
         # tree = etree.ElementTree(root_node)
-        tmpfile = mktemp()
         treestring = etree.tostring(root_node, encoding="utf-8", pretty_print=True)
         with self.store.open_annotation(basefile, mode="wb") as fp:
             fp.write(treestring)
