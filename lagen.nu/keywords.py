@@ -172,9 +172,28 @@ class Keyword(DocumentRepository):
         fp.close()
         return store.select(sq, "python")
 
+    def time_store_select(self, store, query_template, basefile, context=None, label="things"):
+        values = {'basefile': basefile,
+                  'label': label,
+                  'count': None}
+        uri = self.canonical_uri(basefile)
+        msg = ("%(basefile)s: selected %(count)s %(label)s "
+               "(%(elapsed).3f sec)")
+        with util.logtime(self.log.debug,
+                          msg,
+                          values):
+            result = self.store_select(store,
+                                       query_template,
+                                       uri)
+            values['count'] = len(result)
+        return result
+        
+            
+
     # FIXME: translate this to be consistent with construct_annotations
     # (e.g. return a RDF graph through one or a few SPARQL queries),
     # not a XML monstrosity
+
     def prep_annotation_file(self, basefile):
         uri = self.canonical_uri(basefile)
         keyword = basefile
@@ -184,84 +203,46 @@ class Keyword(DocumentRepository):
 
         # Use SPARQL queries to create a rdf graph (to be used by the
         # xslt transform) containing the wiki authored
-        # dcterms:description for this term.
+        # dcterms:description for this term. FIXME: This isn't a real
+        # RDF graph yet.
+        wikidesc = self.time_store_select(store,
+                                          "res/sparql/keyword_subjects.rq",
+                                          basefile,
+                                          None,
+                                          "descriptions")
+        
+        # compatibility hack to enable lxml to process qnames for namespaces 
+        def ns(string):
+            if ":" in string:
+                prefix, tag = string.split(":", 1)
+                return "{%s}%s" % (str(self.ns[prefix]), tag)
 
-        values = {'basefile': basefile,
-                  'count': None}
-        msg = ("%(basefile)s: selected %(count)s descriptions "
-               "(%(elapsed).3f sec)")
-        with util.logtime(self.log.debug,
-                          msg,
-                          values):
-            wikidesc = self.store_select(store,
-                                         "res/sparql/keyword_subjects.rq",
-                                         uri)
-            values['count'] = len(wikidesc)
+        # FIXME: xhv MUST be part of nsmap
+        root_node = etree.Element(ns("rdf:RDF"), nsmap=self.ns)
 
-
-        # FIXME: these other sources of keyword annotations should be
-        # handled by subclasses
-        dvdataset = "http://localhost:8000/dataset/dv"
-        sfsdataset = "http://localhost:8000/dataset/dv"
-
-        msg = ("%(basefile)s: selected %(count)s legaldefs "
-               "(%(elapsed).3f sec)")
-        with util.logtime(self.log.debug,
-                          msg,
-                          values):
-            legaldefinitioner = self.store_select(store,
-                                                  "res/sparql/keyword_sfs.rq",
-                                                  uri, sfsdataset)
-            values['count'] = len(wikidesc)
-
-        msg = ("%(basefile)s: selected %(count)s legalcases"
-               "(%(elapsed).3f sec)")
-        with util.logtime(self.log.debug,
-                          msg,
-                          values):
-            rattsfall = self.store_select(store,
-                                          "res/sparql/keyword_dv.rq",
-                                          uri, dvdataset)
-            values['count'] = len(rattsfall)
-
-        # Maybe we should handle <urn:x-local:arn> triples here as well?
-
-        root_node = etree.Element("rdf:RDF")
-        for prefix in util.ns:
-            etree._namespace_map[util.ns[prefix]] = prefix
-            root_node.set("xmlns:" + prefix, util.ns[prefix])
-
-        main_node = etree.SubElement(root_node, "rdf:Description")
-        main_node.set("rdf:about", uri)
+        main_node = etree.SubElement(root_node, ns("rdf:Description"))
+        main_node.set(ns("rdf:about"), uri)
 
         for d in wikidesc:
-            desc_node = etree.SubElement(main_node, "dcterms:description")
-            xhtmlstr = "<xht2:div xmlns:xht2='%s'>%s</xht2:div>" % (
-                util.ns['xht2'], d['desc'])
+            desc_node = etree.SubElement(main_node, ns("dcterms:description"))
+            xhtmlstr = "<xhv:div>%s</xhv:div>" % (d['desc'])
             xhtmlstr = xhtmlstr.replace(
-                ' xmlns="http://www.w3.org/2002/06/xhtml2/"', '')
+                ' xmlns="http://www.w3.org/1999/xhtml"', '')
             desc_node.append(etree.fromstring(xhtmlstr.encode('utf-8')))
 
-        for r in rattsfall:
-            subject_node = etree.SubElement(main_node, "dcterms:subject")
-            rattsfall_node = etree.SubElement(subject_node, "rdf:Description")
-            rattsfall_node.set("rdf:about", r['uri'])
-            id_node = etree.SubElement(rattsfall_node, "dcterms:identifier")
-            id_node.text = r['id']
-            desc_node = etree.SubElement(rattsfall_node, "dcterms:description")
-            desc_node.text = r['desc']
-
-        for l in legaldefinitioner:
-            subject_node = etree.SubElement(main_node, "rinfoex:isDefinedBy")
-            rattsfall_node = etree.SubElement(subject_node, "rdf:Description")
-            rattsfall_node.set("rdf:about", l['uri'])
-            id_node = etree.SubElement(rattsfall_node, "rdfs:label")
-            # id_node.text = "%s %s" % (l['uri'].split("#")[1], l['label'])
-            id_node.text = self.sfsmgr.display_title(l['uri'])
-
+        # subclasses override this to add extra annotations from other
+        # sources
+        self.prep_annotation_file_termsets(basefile, main_node)
+        
         treestring = etree.tostring(root_node,
                                     encoding="utf-8",
                                     pretty_print=True)
         with self.store.open_annotation(basefile, mode="wb") as fp:
             fp.write(treestring)
         return self.store.annotation_path(basefile)
+
+    def prep_annotation_file_termsets(self, basefile, main_node):
+        pass
+
+        
+
