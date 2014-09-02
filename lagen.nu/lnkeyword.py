@@ -1,19 +1,30 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from lxml import etree
+
 from ferenda import TripleStore
+from ferenda.sources.legal.se import SwedishLegalSource
+
 from keywords import Keyword
+from sfs import SFS
 
 
 class LNKeyword(Keyword):
+    namespaces = SwedishLegalSource.namespaces
     lang = "sv"
     def __init__(self, config=None, **kwargs):
         super(Keyword, self).__init__(config, **kwargs)
         self.termset_funcs = []
+        if self.config._parent and hasattr(self.config._parent, "sfs"):
+            self.sfsrepo = SFS(self.config._parent.sfs)
+        else:
+            self.sfsrepo = SFS()
 
     def canonical_uri(self, basefile):
         # FIXME: make configurable like SFS.canonical_uri
-        return "https://lagen.nu/concept/%s" % basefile.replace(" ", "_")
+        capitalized = basefile[0].upper() + basefile[1:]
+        return 'https://lagen.nu/concept/%s' % capitalized.replace(' ', '_')
 
     def basefile_from_uri(self, uri):
         prefix = "https://lagen.nu/concept/"
@@ -23,14 +34,11 @@ class LNKeyword(Keyword):
             return super(LNKeyword, self).basefile_from_uri(uri)
         
     def prep_annotation_file_termsets(self, basefile, main_node):
-        # FIXME: these other sources of keyword annotations should be
-        # handled by subclasses
-        dvdataset = "http://localhost:8000/dataset/dv"
-        sfsdataset = "http://localhost:8000/dataset/sfs"
+        dvdataset = self.config.url + "dataset/dv"
+        sfsdataset = self.config.url + "dataset/sfs"
         store = TripleStore.connect(self.config.storetype,
                                     self.config.storelocation,
                                     self.config.storerepository)
-
         legaldefs = self.time_store_select(store,
                                           "res/sparql/keyword_sfs.rq",
                                           basefile,
@@ -53,17 +61,22 @@ class LNKeyword(Keyword):
 
         for r in rattsfall:
             subject_node = etree.SubElement(main_node, ns("dcterms:subject"))
-            rattsfall_node = etree.SubElement(subject_node, ns("rdf:Description"))
+            rattsfall_node = etree.SubElement(subject_node,
+                                              ns("rdf:Description"))
             rattsfall_node.set(ns("rdf:about"), r['uri'])
-            id_node = etree.SubElement(rattsfall_node, ns("dcterms:identifier"))
+            id_node = etree.SubElement(rattsfall_node,
+                                       ns("dcterms:identifier"))
             id_node.text = r['id']
-            desc_node = etree.SubElement(rattsfall_node, ns("dcterms:description"))
+            desc_node = etree.SubElement(rattsfall_node,
+                                         ns("dcterms:description"))
             desc_node.text = r['desc']
 
         for l in legaldefs:
-            subject_node = etree.SubElement(main_node, ns("rinfoex:isDefinedBy"))
-            rattsfall_node = etree.SubElement(subject_node, ns("rdf:Description"))
+            subject_node = etree.SubElement(main_node,
+                                            ns("rinfoex:isDefinedBy"))
+            rattsfall_node = etree.SubElement(subject_node,
+                                              ns("rdf:Description"))
             rattsfall_node.set(ns("rdf:about"), l['uri'])
             id_node = etree.SubElement(rattsfall_node, ns("rdfs:label"))
             # id_node.text = "%s %s" % (l['uri'].split("#")[1], l['label'])
-            id_node.text = self.sfsmgr.display_title(l['uri'])
+            id_node.text = self.sfsrepo.display_title(l['uri'])

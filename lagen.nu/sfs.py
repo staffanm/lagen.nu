@@ -46,7 +46,9 @@ from ferenda.elements import TemporalElement
 from ferenda.elements import UnicodeElement
 from ferenda.errors import DocumentRemovedError, ParseError
 from ferenda.sources.legal.se.legalref import LegalRef, LinkSubject
-from ferenda.sources.legal.se import SwedishCitationParser, RPUBL
+from ferenda.sources.legal.se import SwedishCitationParser
+RPUBL = Namespace('http://rinfo.lagrummet.se/ns/2008/11/rinfo/publ#')
+
 
 E = ElementMaker(namespace="http://www.w3.org/1999/xhtml")
 # Objektmodellen för en författning är uppbyggd av massa byggstenar
@@ -402,7 +404,6 @@ class SFS(Trips):
                     else:
                         loglevel = loglevels[loglevel]
                     self.trace[logname].setLevel(loglevel)
-                
             else:
                 # shut up logger
                 self.trace[logname].propagate = False
@@ -1187,20 +1188,21 @@ class SFS(Trips):
         txt += "\r\n"
         return txt
 
+    # FIXME: should get hold of a real LNKeyword repo object and call
+    # it's canonical_uri()
     def _term_to_subject(self, term):
         capitalized = term[0].upper() + term[1:]
-        return 'http://lagen.nu/concept/%s' % capitalized.replace(' ', '_')
+        return 'https://lagen.nu/concept/%s' % capitalized.replace(' ', '_')
 
-    # Post-processar dokumentträdet rekursivt och gör tre saker:
-    #
-    # Hittar begreppsdefinitioner i löptexten
+    # Post-processar dokumentträdet rekursivt och gör två saker:
     #
     # Hittar adresserbara enheter (delresurser som ska ha unika URI:s,
     # dvs kapitel, paragrafer, stycken, punkter) och konstruerar id's
     # för dem, exv K1P2S3N4 för 1 kap. 2 \xa7 3 st. 4 p
     #
-    # Hittar lagrumshänvisningar i löptexten
-    def _construct_ids(self, element, prefix, baseuri, skip_fragments=[], find_definitions=False):
+    # Hittar begreppsdefinitioner i löptexten
+    def _construct_ids(self, element, prefix, baseuri, skip_fragments=[],
+                       find_definitions=False):
         find_definitions_recursive = find_definitions
         counters = defaultdict(int)
         if isinstance(element, CompoundElement):
@@ -1219,6 +1221,13 @@ class SFS(Trips):
                 if self.re_loptextdef(element[0][0]):
                     find_definitions = "loptext"
 
+                for p in element:
+                    if isinstance(p, Stycke):
+                        # do an extra check in case "I denna paragraf
+                        # avses med" occurs in the 2nd or later
+                        # paragrapgh of a section
+                        if self.re_definitions(p[0]):
+                            find_definitions = "normal"
                 find_definitions_recursive = find_definitions
 
             # Hitta lagrumshänvisningar + definitioner
@@ -1239,6 +1248,7 @@ class SFS(Trips):
                             self.log.debug(
                                 '"%s" är nog en definition (1)' % term)
                     elif isinstance(element, Stycke):
+
                         # Case 1: "antisladdsystem: ett tekniskt stödsystem"
                         # Sometimes, : is not the delimiter between
                         # the term and the definition, but even in
@@ -1246,7 +1256,6 @@ class SFS(Trips):
                         # definition itself, usually as part of the
                         # SFS number. Do some hairy heuristics to find
                         # out what delimiter to use
-
                         if find_definitions == "normal":
                             if not self.re_definitions(elementtext):
                                 if " - " in elementtext:
@@ -1308,10 +1317,6 @@ class SFS(Trips):
                     # betalningsöverföring och annan finansiell
                     # verksamhet"
                     if term and len(term) < 68:
-                        # this results in empty/hidden links -- might
-                        # be better to hchange sfs.template.xht2 to
-                        # change these to <span rel="" href=""/>
-                        # instead. Or use another object than LinkSubject.
                         term = util.normalize_space(term)
                         termnode = LinkSubject(term, uri=self._term_to_subject(
                             term), predicate="dcterms:subject")
@@ -1319,35 +1324,13 @@ class SFS(Trips):
                     else:
                         term = None
 
-# do this in a CitationParser.parse_recursive call instead
-#                for p in element:  # normally only one, but can be more
-#                                  # if the Stycke has a NumreradLista
-#                                  # or similar
-#
-#                    if isinstance(p, str):  # look for stuff
-#                        # normalize and convert some characters
-#                        s = " ".join(p.split())
-#                        s = s.replace("\x96", "-")
-#                        # Make all links have a dcterms:references
-#                        # predicate -- not that meaningful for the
-#                        # XHTML2 code, but needed to get useful RDF
-#                        # triples in the RDFa output
-#                        # print "Parsing %s" % " ".join(p.split())
-#                        # print "Calling parse w %s" % baseuri+"#"+prefix
-#                        parsednodes = self.lagrum_parser.parse(s,
-#                                                               baseuri +
-#                                                               prefix,
-#                                                               "dcterms:references")
-#                        for n in parsednodes:
-#                            # py2 compat FIxme
-#                            if term and isinstance(n, str) and term in n:
-#                                (head, tail) = n.split(term, 1)
-#                                nodes.extend((head, termnode, tail))
-#                            else:
-#                                nodes.append(n)
-#
-#                        idx = element.index(p)
-#                element[idx:idx + 1] = nodes
+                if term:
+                    for p in element:
+                        if isinstance(p, str) and term in p:
+                            (head, tail) = p.split(term, 1)
+                            nodes = (head, termnode, tail)
+                            idx = element.index(p)
+                    element[idx:idx + 1] = nodes
 
             # Konstruera IDs
             for p in element:
@@ -1411,7 +1394,6 @@ class SFS(Trips):
         self._construct_ids(doc.body, '',
                             self.canonical_uri(doc.basefile),
                             skipfragments)
-
         self.lagrum_parser.parse_recursive(doc.body)
 
     #----------------------------------------------------------------
@@ -2583,7 +2565,8 @@ class SFS(Trips):
 
 
     def prep_annotation_file(self, basefile):
-
+        from pudb import set_trace; set_trace()
+        
         sfsdataset = self.dataset_uri()
         assert "sfs" in sfsdataset
         dvdataset = sfsdataset.replace("sfs", "dv")

@@ -12,13 +12,14 @@ from lxml import etree
 
 # mine
 # from ferenda.sources.legal.se import SFS
-from ferenda.sources.legal.se import SwedishCitationParser
+from ferenda.sources.legal.se import SwedishLegalSource, SwedishCitationParser
 from lnkeyword import LNKeyword
 from sfs import SFS
 from wiki import MediaWiki, WikiSemantics, WikiSettings
 
 
 class LNMediaWiki(MediaWiki):
+    namespaces = SwedishLegalSource.namespaces
 
     from ferenda.sources.legal.se.legalref import LegalRef
     

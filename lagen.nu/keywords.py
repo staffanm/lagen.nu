@@ -12,7 +12,7 @@ import pkg_resources
 import requests
 from lxml import etree
 from lxml.builder import ElementMaker
-from rdflib import Literal
+from rdflib import Literal, Namespace
 
 # my libs
 from ferenda import util
@@ -167,10 +167,16 @@ class Keyword(DocumentRepository):
             fp = pkg_resources.resource_stream('ferenda', query_template)
         else:
             raise ValueError("query template %s not found" % query_template)
-        params = {'uri': uri}
+        params = {'uri': uri,
+                  'context': context}
         sq = fp.read().decode('utf-8') % params
         fp.close()
-        return store.select(sq, "python")
+        # FIXME: Only FusekiStore.select supports (or needs) uniongraph
+        if context:
+            uniongraph = False
+        else:
+            uniongraph = True
+        return store.select(sq, "python", uniongraph=uniongraph)
 
     def time_store_select(self, store, query_template, basefile, context=None, label="things"):
         values = {'basefile': basefile,
@@ -184,7 +190,8 @@ class Keyword(DocumentRepository):
                           values):
             result = self.store_select(store,
                                        query_template,
-                                       uri)
+                                       uri,
+                                       context)
             values['count'] = len(result)
         return result
         
@@ -218,6 +225,9 @@ class Keyword(DocumentRepository):
                 return "{%s}%s" % (str(self.ns[prefix]), tag)
 
         # FIXME: xhv MUST be part of nsmap
+        if 'xhtml' not in self.ns:
+            self.ns['xhtml'] = "http://www.w3.org/1999/xhtml"
+
         root_node = etree.Element(ns("rdf:RDF"), nsmap=self.ns)
 
         main_node = etree.SubElement(root_node, ns("rdf:Description"))
@@ -225,9 +235,9 @@ class Keyword(DocumentRepository):
 
         for d in wikidesc:
             desc_node = etree.SubElement(main_node, ns("dcterms:description"))
-            xhtmlstr = "<xhv:div>%s</xhv:div>" % (d['desc'])
-            xhtmlstr = xhtmlstr.replace(
-                ' xmlns="http://www.w3.org/1999/xhtml"', '')
+            xhtmlstr = "<div xmlns='http://www.w3.org/1999/xhtml'>%s</div>" % (d['desc'])
+            # xhtmlstr = xhtmlstr.replace(
+            #    ' xmlns="http://www.w3.org/1999/xhtml"', '')
             desc_node.append(etree.fromstring(xhtmlstr.encode('utf-8')))
 
         # subclasses override this to add extra annotations from other

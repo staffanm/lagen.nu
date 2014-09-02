@@ -224,23 +224,23 @@ class MediaWiki(DocumentRepository):
                     element.append(str(child.tail))
         return element
 
-    # differ from the default relate_triples in that it uses a different
-    # context for every basefile and clears this beforehand.
-    # Note that a basefile can contain statements
-    # about multiple and changing subjects, so it's not trivial to erase all
-    # statements that stem from a basefile w/o a dedicated context.
-    def relate_triples(self, basefile):
-        context = self.dataset_uri() + "#" + basefile.replace(" ", "_")
-        ts = self._get_triplestore()
-        with util.logtime(self.log.debug,
-                          "%(basefile)s: Added %(rdffile)s to context %(context)s (%(elapsed).3f sec)",
-                          {'basefile': basefile,
-                           'context': context,
-                           'rdffile': self.store.distilled_path(basefile),
-                           'triplestore': self.config.storelocation}):
-            data = open(self.store.distilled_path(basefile)).read()
-            ts.clear(context=context)
-            ts.add_serialized(data, format="xml", context=context)
+#    # differ from the default relate_triples in that it uses a different
+#    # context for every basefile and clears this beforehand.
+#    # Note that a basefile can contain statements
+#    # about multiple and changing subjects, so it's not trivial to erase all
+#    # statements that stem from a basefile w/o a dedicated context.
+#    def relate_triples(self, basefile):
+#        context = self.dataset_uri() + "#" + basefile.replace(" ", "_")
+#        ts = self._get_triplestore()
+#        with util.logtime(self.log.debug,
+#                          "%(basefile)s: Added %(rdffile)s to context %(context)s (%(elapsed).3f sec)",
+#                          {'basefile': basefile,
+#                           'context': context,
+#                           'rdffile': self.store.distilled_path(basefile),
+#                           'triplestore': self.config.storelocation}):
+#            data = open(self.store.distilled_path(basefile)).read()
+#            ts.clear(context=context)
+#            ts.add_serialized(data, format="xml", context=context)
 
 
 class WikiSemantics(Semantics):
