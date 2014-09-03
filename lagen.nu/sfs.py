@@ -2558,18 +2558,41 @@ class SFS(Trips):
             fp = pkg_resources.resource_stream('ferenda', query_template)
         else:
             raise ValueError("query template %s not found" % query_template)
-        params = {'uri': uri}
+        params = {'uri': uri,
+                  'context': context}
         sq = fp.read().decode('utf-8') % params
         fp.close()
-        return store.select(sq, "python")
+        # FIXME: Only FusekiStore.select supports (or needs) uniongraph
+        if context:
+            uniongraph = False
+        else:
+            uniongraph = True
+        return store.select(sq, "python", uniongraph=uniongraph)
 
+    # FIXME: Copied verbatim from keyword.py
+    def time_store_select(self, store, query_template, basefile,
+                          context=None, label="things"):
+        values = {'basefile': basefile,
+                  'label': label,
+                  'count': None}
+        uri = self.canonical_uri(basefile)
+        msg = ("%(basefile)s: selected %(count)s %(label)s "
+               "(%(elapsed).3f sec)")
+        with util.logtime(self.log.debug,
+                          msg,
+                          values):
+            result = self.store_select(store,
+                                       query_template,
+                                       uri,
+                                       context)
+            values['count'] = len(result)
+        return result
 
     def prep_annotation_file(self, basefile):
-        from pudb import set_trace; set_trace()
-        
         sfsdataset = self.dataset_uri()
         assert "sfs" in sfsdataset
         dvdataset = sfsdataset.replace("sfs", "dv")
+        wikidataset = sfsdataset.replace("sfs", "mediawiki")
         
         # this is old legacy code. The new nice way would be to create
         # one giant SPARQL CONSTRUCT query file and just set
@@ -2585,13 +2608,11 @@ class SFS(Trips):
         # 1. all rpubl:Rattsfallsreferat that has baseuri as a
         # rpubl:lagrum, either directly or through a chain of
         # dcterms:isPartOf statements
-        values = {'basefile': basefile,
-                  'count': None}
-        with util.logtime(self.log.debug,
-                          "%(basefile)s: selected %(count)s legal cases (%(elapsed).3f sec)",
-                          values):
-            rattsfall = self.store_select(store, "res/sparql/sfs_rattsfallsref.rq", uri, dvdataset)
-            values['count'] = len(rattsfall)
+        rattsfall = self.time_store_select(store,
+                                           "res/sparql/sfs_rattsfallsref.rq",
+                                           basefile,
+                                           None,  # query uses both dv and sfs datasets
+                                           "legal cases")
 
         stuff[baseuri] = {}
         stuff[baseuri]['rattsfall'] = []
@@ -2637,14 +2658,11 @@ class SFS(Trips):
         stuff[baseuri]['rattsfall'] = filtered
 
         # 2. all law sections that has a dcterms:references that matches this (using dcterms:isPartOf).
-        values = {'basefile': basefile,
-                  'count': None}
-        with util.logtime(self.log.debug,
-                          "%(basefile)s: selected %(count)s law references (%(elapsed).3f sec)",
-                          values):
-            inboundlinks = self.store_select(store, "res/sparql/sfs_inboundlinks.rq", uri, sfsdataset)
-            values['count'] = len(inboundlinks)
-
+        inboundlinks = self.time_store_select(store,
+                                              "res/sparql/sfs_inboundlinks.rq",
+                                              basefile,
+                                              sfsdataset,
+                                              "law references")
         stuff[baseuri]['inboundlinks'] = []
 
         # mapping <http://rinfo.lagrummet.se/publ/sfs/1999:175> =>
@@ -2682,15 +2700,12 @@ class SFS(Trips):
 
         # pprint (stuff)
         # 3. all wikientries that dcterms:description this
-        values = {'basefile': basefile,
-                  'count': None}
-        with util.logtime(self.log.debug,
-                          "%(basefile)s: selected %(count)s wiki comments (%(elapsed).3f sec)",
-                          values):
-            wikidesc = self.store_select(store, "res/sparql/sfs_wikientries.rq", uri) # , wikidataset
-            values['count'] = len(wikidesc)
+        wikidesc = self.time_store_select(store,
+                                          "res/sparql/sfs_wikientries.rq",
+                                          basefile,
+                                          None, # need both mediawiki and sfs contexts
+                                          "wiki comments")
 
-        # wikidesc = []
         for row in wikidesc:
             if not 'lagrum' in row:
                 lagrum = baseuri
@@ -2705,15 +2720,12 @@ class SFS(Trips):
         # (4. eurlex.nu data (mapping CELEX ids to titles))
         # (5. Propositionstitlar)
         # 6. change entries for each section
-        # FIXME: we need to differentiate between additions, changes
-        # and deletions
-        values = {'basefile': basefile,
-                  'count': None}
-        with util.logtime(self.log.debug,
-                          "%(basefile)s: selected %(count)s change annotations (%(elapsed).3f sec)",
-                          values):
-            changes = self.store_select(store, "res/sparql/sfs_changes.rq", uri, sfsdataset)
-            values['count'] = len(changes)
+        # NOTE: The SFS RDF data does not yet contain change entries, this query always returns 0 rows
+        changes = self.time_store_select(store,
+                                         "res/sparql/sfs_changes.rq",
+                                         basefile,
+                                         sfsdataset,
+                                         "change annotations")
 
         for row in changes:
             lagrum = row['lagrum']
@@ -2723,6 +2735,10 @@ class SFS(Trips):
                 stuff[lagrum]['changes'] = []
             stuff[lagrum]['changes'].append({'uri': row['change'],
                                              'id': row['id']})
+
+        import json
+        print(json.dumps(stuff, indent=4))
+        
 
         # then, construct a single de-normalized rdf/xml dump, sorted
         # by root/chapter/section/paragraph URI:s. We do this using
@@ -2832,10 +2848,7 @@ class SFS(Trips):
                     id_node.text = r['id']
             if 'desc' in stuff[l]:
                 desc_node = etree.SubElement(lagrum_node, ns("dcterms:description"))
-                xhtmlstr = "<xht2:div xmlns:xht2='%s'>%s</xht2:div>" % (
-                    util.ns['xht2'], stuff[l]['desc'])
-                xhtmlstr = xhtmlstr.replace(
-                    ' xmlns="http://www.w3.org/2002/06/xhtml2/"', '')
+                xhtmlstr = "<div xmlns='http://www.w3.org/1999/xhtml'>%s</div>" % stuff[l]['desc']
                 desc_node.append(etree.fromstring(xhtmlstr.encode('utf-8')))
 
         # tree = etree.ElementTree(root_node)
@@ -2843,59 +2856,6 @@ class SFS(Trips):
         with self.store.open_annotation(basefile, mode="wb") as fp:
             fp.write(treestring)
         return self.store.annotation_path(basefile)
-
-    def Generate(self, basefile):
-        start = time()
-        basefile = basefile.replace(":", "/")
-        infile = util.relpath(self._xmlFileName(basefile))
-        outfile = util.relpath(self._htmlFileName(basefile))
-
-        annotations = "%s/%s/intermediate/%s.ann.xml" % (
-            self.config.datadir, self.alias, basefile)
-
-        force = (self.config.generateforce is True)
-
-        dependencies = self._load_deps(basefile)
-        wiki_comments = "data/wiki/parsed/SFS/%s.xht2" % basefile
-        if os.path.exists(wiki_comments):
-            dependencies.append(wiki_comments)
-
-        if not force and self._outfile_is_newer(dependencies, annotations):
-            if os.path.exists(self._depsFileName(basefile)):
-                self.log.debug("%s: All %s dependencies untouched in rel to %s" %
-                               (basefile, len(dependencies), util.relpath(annotations)))
-            else:
-                self.log.debug("%s: Has no dependencies" % basefile)
-
-        else:
-            self.log.info("%s: Generating annotation file", basefile)
-            start = time()
-            self._generateAnnotations(annotations, basefile)
-            if time() - start > 5:
-                self.log.info("openrdf-sesame is getting slow, reloading")
-                cmd = "curl -u %s:%s http://localhost:8080/manager/reload?path=/openrdf-sesame" % (
-                    self.config['tomcatuser'], self.config['tomcatpassword'])
-                util.runcmd(cmd)
-            else:
-                sleep(0.5)  # let sesame catch it's breath
-
-        if not force and self._outfile_is_newer([infile, annotations], outfile):
-            self.log.debug("%s: Överhoppad", basefile)
-            return
-
-        util.mkdir(os.path.dirname(outfile))
-        #params = {'annotationfile':annotations}
-        # FIXME: create a relative version of annotations, instead of
-        # hardcoding self.config.datadir like below
-        params = {'annotationfile':
-                  '../data/sfs/intermediate/%s.ann.xml' % basefile}
-
-        # FIXME: Use pkg_resources to get at sfs.xsl
-        self.transform_html("res/xsl/sfs.xsl", infile, outfile, parameters=params)
-
-        self.log.info(
-            '%s: OK (%s, %.3f sec)', basefile, outfile, time() - start)
-        return
 
     def _unlocalize_uri(self, uri):
         # may need to munge https://lagen.nu/2010:1770#K1P2S1 back to

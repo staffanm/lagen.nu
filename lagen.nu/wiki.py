@@ -244,6 +244,18 @@ class MediaWiki(DocumentRepository):
 
 
 class WikiSemantics(Semantics):
+
+    def document(self, ast):
+        html = super(WikiSemantics, self).document(ast)
+        # remove the newly-created toc. If postprocess_toc was a
+        # Semantics method we could just override this in this
+        # superclass, now we'll have to rip it out after the fact.
+        toc = html.find(".//div[@id='toc']")
+        if toc is not None:
+            toc.getparent().remove(toc)
+        return html
+            
+    
     def internal_link(self, ast):
         el = super(WikiSemantics, self).internal_link(ast)
         target = "".join(ast.target).strip()
@@ -261,6 +273,11 @@ class WikiSettings(Settings):
 
 class WikiPreprocessor(Preprocessor):
     def get_template(self, namespace, pagename):
+        # FIXME: This is a special hack for supporting
+        # {{DISPLAYTITLE}} (not a proper template? Check if smc.mw is
+        # supposed to have support for wgAllowDisplayTitle
+        if pagename.startswith("DISPLAYTITLE:"):
+            pagename = "DISPLAYTITLE"
         if namespace.prefix != "template":
             return None
         tmpl = self.settings.templates.get((namespace.prefix, pagename), None)

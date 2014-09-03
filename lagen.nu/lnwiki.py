@@ -136,8 +136,8 @@ class LNSettings(WikiSettings):
         self.templates = {("template", "TranslatedAct"):
                           "\n<small>[{{{href}}} An unofficial translation of "
                           "{{{actname}}} is available from "
-                          "{{{source}}}]</small>\n"}
-        
+                          "{{{source}}}]</small>\n",
+                          ("template", "DISPLAYTITLE"): ""}
     def make_url(self, name, **kwargs):
         # uri = super(LNSettings, self).make_url(name, **kwargs)
         if name[1].startswith("SFS/"):
