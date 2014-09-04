@@ -80,6 +80,7 @@ class LNMediaWiki(MediaWiki):
         currdiv.set("about", curruri)
         currdiv.set("property", "dcterms:description")
         currdiv.set("datatype", "rdf:XMLLiteral")
+        containerdiv = etree.SubElement(currdiv, "div")
         for child in body.getchildren():
             if child.tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
                 # remove that <span> element that Semantics._h_el adds for us
@@ -99,9 +100,11 @@ class LNMediaWiki(MediaWiki):
                 currdiv.set("about", curruri)
                 currdiv.set("property", "dcterms:description")
                 currdiv.set("datatype", "rdf:XMLLiteral")
+                # create a containerdiv under currdiv for reasons
+                containerdiv = etree.SubElement(currdiv, "div")
             else:
                 # body.remove(child)
-                currdiv.append(child)
+                currdiv[0].append(child)
         xhtmltree.remove(body)
         xhtmltree.append(newbody)
         

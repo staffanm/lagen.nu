@@ -182,9 +182,14 @@ class MediaWiki(DocumentRepository):
         body = xhtmltree.getchildren()[0]
         # render_xhtml_tree will add @about
         if toplevel_property:
-            # shouldn't add these in SFS mode
+            # shouldn't add these in postprocess_commentary mode
             body.set("property", "dcterms:description")
             body.set("datatype", "rdf:XMLLiteral")
+            containerdiv = etree.Element("div")
+            for child in body:
+                body.remove(child)
+                containerdiv.append(child)
+            body.append(containerdiv)
         # find any links that indicate that this concept has the
         # dcterms:subject of something (typically indicated by
         # Category tags)

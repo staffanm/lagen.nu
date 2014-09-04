@@ -407,6 +407,32 @@ class SFS(Trips):
             else:
                 # shut up logger
                 self.trace[logname].propagate = False
+        # NOTE: this runs the makeimages function every time a SFS
+        # repo is created, not just when self.config.imgfiles is
+        # accessed. But with caching maybe that's ok?
+        self.config.imgfiles = self._makeimages()
+
+    def _makeimages(self):
+        # FIXME: make sure a suitable font exists
+        font = "Helvetica" 
+        def makeimage(basename, label):
+            filename = "res/img/sfs/%s.png" % basename
+            if not os.path.exists(filename):
+                util.ensure_dir(filename)
+                self.log.info("Creating img %s with label %s" % (filename,label))
+                cmd = 'convert -background transparent -fill Grey -font Helvetica -pointsize 10 -size 44x14 -gravity East label:"%s " %s' % (label,filename)
+                util.runcmd(cmd)
+            return filename
+            
+        ret = []
+        for i in range(1,150):
+            for j in ('','a','b'):
+                ret.append(makeimage("K%d%s"%(i,j),"%d%s kap."%(i,j)))
+        for i in range(1,100):
+            ret.append(makeimage("S%d"%i,"%d st."%i))
+        return ret
+
+
         
 
     # make sure our EBNF-based parsers (which are expensive to create)
