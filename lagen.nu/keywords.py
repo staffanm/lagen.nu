@@ -50,7 +50,7 @@ class Keyword(DocumentRepository):
     alias = "keyword"
     downloaded_suffix = ".txt"
     documentstore_class = KeywordStore
-    
+    xslt_template = "res/xsl/keyword.xsl"
     def __init__(self, config=None, **kwargs):
         super(Keyword, self).__init__(config, **kwargs)
         # extra functions -- subclasses can add / remove from this

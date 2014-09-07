@@ -187,7 +187,7 @@ class DV(SwedishLegalSource):
     
     DCTERMS = Namespace(util.ns['dcterms'])
     sparql_annotations = "res/sparql/dv-annotations.rq"
-
+    xslt_template = "res/xsl/dv.xsl"
     @classmethod
     def relate_all_setup(cls, config):
         # FIXME: If this was an instancemethod, we could use
