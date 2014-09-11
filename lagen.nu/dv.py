@@ -25,11 +25,11 @@ from lxml import etree
 from bs4 import BeautifulSoup, NavigableString
 
 # my libs
-from ferenda import Document, DocumentStore, Describer, WordReader, FSMParser
+from ferenda import Document, DocumentStore, Describer, WordReader, FSMParser, Facet
 from ferenda.decorators import managedparsing, newstate
-from ferenda import util
+from ferenda import util, fulltextindex
 from ferenda.sources.legal.se.legalref import LegalRef, Link
-from ferenda.elements import Body, Paragraph, CompoundElement, OrdinalElement, Heading
+from ferenda.elements import Body, Paragraph, CompoundElement, OrdinalElement, Heading, Link
 
 from ferenda.elements.html import Strong, Em
 from ferenda.sources.legal.se import SwedishLegalSource, SwedishCitationParser, RPUBL
@@ -233,7 +233,7 @@ def analyze_dom(strchunk):
 class DV(SwedishLegalSource):
     alias = "dv"
     downloaded_suffix = ".zip"
-    rdf_type = RPUBL.Rattsfallsreferat
+    rdf_type = (RPUBL.Rattsfallsreferat, RPUBL.Rattsfallsnotis)
     documentstore_class = DVStore
     # This is very similar to SwedishLegalSource.required_predicates,
     # only DCTERMS.title has been changed to RPUBL.referatrubrik (and if
@@ -1661,7 +1661,35 @@ class DV(SwedishLegalSource):
                     current_r = r
         return soup
     
-            
+    def facets(self):
+        return [Facet(RDF.type),
+                Facet(RPUBL.referatrubrik,
+                      indexingtype = fulltextindex.Text(boost=4),
+                      toplevel_only = True,
+                      use_for_toc = False),
+                Facet(DCTERMS.identifier),
+                Facet(RPUBL.rattsfallspublikation,
+                      indexingtype = fulltextindex.Resource(),
+                      use_for_toc = True,
+                      selector = Facet.resourcelabel,
+                      key = Facet.resourcelabel,
+                      identificator = Facet.term,
+                      dimension_type = 'ref'),
+                Facet(RPUBL.arsutgava,
+                      indexingtype = fulltextindex.Label(),
+                      use_for_toc = True,
+                      selector = Facet.defaultselector,
+                      key = Facet.defaultselector,
+                      dimension_type = 'value')
+                ]
+
+    def toc_item(self, binding, row):
+        r = [Strong([Link(row['dcterms_identifier'],
+                          uri=row['uri'])])]
+        if 'rpubl_referatrubrik' in row:
+            r.append(row['rpubl_referatrubrik'])
+        return r
+
     # gonna need this for news_criteria()
     pubs = {'http://rinfo.lagrummet.se/ref/rff/nja': 'Högsta domstolen',
             'http://rinfo.lagrummet.se/ref/rff/rh': 'Hovrätterna',
