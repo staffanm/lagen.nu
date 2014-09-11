@@ -5,7 +5,7 @@
 		xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 		xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
 		xmlns:dcterms="http://purl.org/dc/terms/"
-		xmlns:rinfo="http://rinfo.lagrummet.se/taxo/2007/09/rinfo/pub#"
+		xmlns:rpubl="http://rinfo.lagrummet.se/ns/2008/11/rinfo/publ#"
 		xmlns:rinfoex="http://lagen.nu/terms#"
 		xml:space="preserve"
 		exclude-result-prefixes="xhtml rdf">
@@ -13,7 +13,6 @@
   <xsl:import href="uri.xsl"/>
   <xsl:include href="base.xsl"/>
 
-  <xsl:variable name="myannotations" select="document($annotationfile)/rdf:RDF"/>
   <!-- Implementations of templates called by base.xsl -->
   <xsl:template name="headtitle"><xsl:value-of select="//xhtml:meta/@dcterms:identifier"/> | <xsl:value-of select="$configuration/sitename"/></xsl:template>
   <xsl:template name="metarobots"/>
@@ -41,54 +40,53 @@
 
   <xsl:template name="aside-annotations">
     <xsl:param name="uri"/>
+    <xsl:variable name="domuri" select="//xhtml:link[@rel='rpubl:referatAvDomstolsavgorande']/@href"/>
     <aside class="metadata">
       <h2>Metadata</h2>
       <dl>
 	<dt>Domstol</dt>
-	<dd><xsl:value-of select="//xhtml:link[@rel='dcterms:publisher']/@href"/></dd>
+	<dd><xsl:value-of select="//xhtml:link[@rel='dcterms:publisher' and @about=$domuri]/@href"/></dd>
 	<dt>Avgörandedatum</dt>
-	<dd><xsl:value-of select="//xhtml:meta[@rel='rpubl:avgorandedatum']/@content"/></dd>
+	<dd><xsl:value-of select="//xhtml:meta[@property='rpubl:avgorandedatum' and @about=$domuri]/@content"/></dd>
 	<dt>Målnummer</dt>
-	<dd><xsl:value-of select="//xht2:dd[@property='rinfo:malnummer']"/></dd>
-	<xsl:if test="//xht2:a[@rel='rinfo:lagrum']">
+	<dd><xsl:value-of select="//xhtml:meta[@property='rpubl:malnummer' and @about=$domuri]/@content"/></dd>
+	<xsl:if test="//xhtml:link[@rel='rpubl:lagrum' and @about=$domuri]">
 	  <dt>Lagrum</dt>
-	  <xsl:for-each select="//xht2:dd[xht2:a[@rel='rinfo:lagrum']]">
-	    <dd><xsl:apply-templates select="."/></dd>
+	  <xsl:for-each select="//xhtml:link[@rel='rpubl:lagrum' and @about=$domuri]">
+	    <dd><xsl:apply-templates select="@href"/></dd>
 	  </xsl:for-each>
 	</xsl:if>
-	<xsl:if test="//xht2:a[@rel='rinfo:rattsfallshanvisning']">
+	<xsl:if test="//xhtml:link[@rel='rpubl:rattsfallshanvisning']">
 	  <dt>Rättsfall</dt>
-	  <xsl:for-each select="//xht2:dd[xht2:a[@rel='rinfo:rattsfallshanvisning']]">
+	  <xsl:for-each select="//xhtml:link[@rel='rpubl:rattsfallshanvisning']">
 	    <dd><xsl:apply-templates select="."/></dd>
 	  </xsl:for-each>
 	</xsl:if>
-	<xsl:if test="//xht2:dd[@property='dct:relation']">
+	<xsl:if test="//xhtml:meta[@property='dcterms:relation']">
 	  <dt>Litteratur</dt>
-	  <xsl:for-each select="//xht2:dd[@property='dct:relation']">
-	    <dd property="dct:relation"><xsl:value-of select="."/></dd>
+	  <xsl:for-each select="//xhtml:meta[@property='dcterms:relation']">
+	    <dd><xsl:value-of select="."/></dd>
 	  </xsl:for-each>
 	</xsl:if>
-	<xsl:if test="//xht2:dd[@property='dct:subject']">
+	<xsl:if test="//xhtml:link[@about=$domuri and @rel='dcterms:subject']">
 	  <dt>Sökord</dt>
-	  <xsl:for-each select="//xht2:dd[@property='dct:subject']">
-	    <dd property="dct:subject"><a href="/begrepp/{.}"><xsl:value-of select="."/></a></dd>
+	  <xsl:for-each select="//xhtml:link[@about=$domuri and @rel='dcterms:subject']">
+	    <dd><a href="@href"><xsl:value-of select="@href"/></a></dd>
 	  </xsl:for-each>
 	</xsl:if>
 	<dt>Källa</dt>
-	<dd rel="dct:publisher" resource="http://lagen.nu/org/2008/domstolsverket" content="Domstolsverket"><a href="http://www.rattsinfosok.dom.se/lagrummet/index.jsp">Domstolsverket</a></dd>
+	<dd><a href="http://www.rattsinfosok.dom.se/lagrummet/index.jsp">Domstolsverket</a></dd>
       </dl>
     </aside>
 
     <aside class="annotations rattsfall">
       <h2>Rättsfall som hänvisar till detta</h2>
       <xsl:for-each select="$annotations/resource/dcterms:references[@ref=$uri]">
-	<li>Data goes here</li>
+	<li>Data for <xsl:value-of select="../@uri"/> goes here</li>
       </xsl:for-each>
     </aside>
     
-    <xsl:variable name="legaldefs" select="$myannotations/rdf:Description/rinfoex:isDefinedBy/*"/>
-    <xsl:variable name="rattsfall" select="$myannotations/rdf:Description/dcterms:subject/rdf:Description"/>
-    <xsl:message>aside: <xsl:value-of select="count($legaldefs)"/> legaldefs, <xsl:value-of select="count($rattsfall)"/> legalcases</xsl:message>
+    <xsl:variable name="rattsfall" select="$annotations/resource[a/rpubl:Rattsfallsreferat]"/>
     <xsl:if test="$rattsfall">
       <aside class="annotations rattsfall">
 	<h2>Rättsfall (<xsl:value-of select="count($rattsfall)"/>)</h2>
@@ -97,27 +95,16 @@
 	</xsl:call-template>
       </aside>
     </xsl:if>
-
-    <xsl:if test="$legaldefs">
-      <aside class="annotations lagrumshanvisningar">
-	<h2>Lagrumshänvisningar hit (<xsl:value-of select="count($legaldefs)"/>)</h2>
-	<!-- call the template -->
-	<xsl:call-template name="inbound">
-	  <xsl:with-param name="inbound" select="$legaldefs"/>
-	</xsl:call-template>
-      </aside>
-    </xsl:if>
   </xsl:template>
-
-  <!-- FIXME: these 2 templates are copied from sfs.xsl, and they
-       should probably be part of lnkeyword.xsl -->
+  
+  <!-- FIXME: this template is copied from sfs.xsl, and should probably be in a lib that dv.xsl, sfs.xsl and lnkeyword.xsl can share. -->
   <xsl:template name="rattsfall">
     <xsl:param name="rattsfall"/>
       <xsl:for-each select="$rattsfall">
-	<xsl:sort select="@rdf:about"/>
+	<xsl:sort select="@uri"/>
 	<xsl:variable name="tuned-width">
 	  <xsl:call-template name="tune-width">
-	    <xsl:with-param name="txt" select="dcterms:description"/>
+	    <xsl:with-param name="txt" select="rpubl:referatrubrik"/>
 	    <xsl:with-param name="width" select="80"/>
 	    <xsl:with-param name="def" select="80"/>
 	  </xsl:call-template>
@@ -125,32 +112,23 @@
 	<xsl:variable name="localurl"><xsl:call-template name="localurl"><xsl:with-param name="uri" select="@rdf:about"/></xsl:call-template></xsl:variable>
 	<a href="{$localurl}"><b><xsl:value-of select="dcterms:identifier"/></b></a>:
 	<xsl:choose>
-	  <xsl:when test="string-length(dcterms:description) > 80">
-	    <xsl:value-of select="normalize-space(substring(dcterms:description, 1, $tuned-width - 1))" />...
+	  <xsl:when test="string-length(rpubl:referatrubrik) > 80">
+	    <xsl:value-of select="normalize-space(substring(rpubl:referatrubrik, 1, $tuned-width - 1))" />...
 	  </xsl:when>
 	  <xsl:otherwise>
-	    <xsl:value-of select="dcterms:description"/>
+	    <xsl:value-of select="rpubl:referatrubrik"/>
 	  </xsl:otherwise>
 	</xsl:choose>
 	<br/>
       </xsl:for-each>
   </xsl:template>
 
-  <xsl:template name="inbound">
-    <xsl:param name="inbound"/>
-    <ul class="lagrumslista">
-      <xsl:for-each select="$inbound">
-	<li>
-	  <xsl:variable name="localurl"><xsl:call-template name="localurl"><xsl:with-param name="uri" select="@rdf:about"/></xsl:call-template></xsl:variable>
-	  <a href="{$localurl}"><xsl:value-of select="rdfs:label"/></a>
-	</li>
-      </xsl:for-each>
-    </ul>
-  </xsl:template>
-
-
 
   <xsl:template match="xhtml:body/xhtml:div">
+    <h1><xsl:value-of select="@class"/></h1>
+      <section>
+	<xsl:apply-templates/>
+      </section>
   </xsl:template>
 
 

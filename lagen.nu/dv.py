@@ -169,7 +169,67 @@ class Betankande(DomElement): pass # dcterms:author <- referent
 class Skiljaktig(DomElement): pass # dcterms:author <- name
 class Tillagg(DomElement): pass # dcterms:author <- name
 class Endmeta(DomElement): pass
-        
+
+
+# these helper methods are used by structure_body, but put in module
+# scope for easier initial testing
+courtnames = []
+instans_matchers = []
+standalone_courtname = re.compile("^(Högsta domstolen|Hovrätten (över|för) [A-ZÅÄÖa-zåäö ]+|([A-ZÅÄÖ][a-zåäö]+ )(tingsrätt|hovrätt))$")
+rx = ('(?P<court>Försäkringskassan|Migrationsverket) beslutade (därefter|) den (?P<date>\d+ \w+ \d+) att',
+      '(A överklagade beslutet till |)(?P<court>(Förvaltningsrätten|Länsrätten|Kammarrätten) i \w+(| län)(|, migrationsdomstolen|, Migrationsöverdomstolen)|Högsta förvaltningsdomstolen) \((?P<date>\d+-\d+-\d+), (?P<constitution>[\w ,]+)\)')
+instans_matchers = [re.compile(x, re.UNICODE) for x in rx]
+
+def split_sentences(text):
+    text = util.normalize_space(text)
+    text += " "
+    return text.split(". ")
+
+def analyze_instans(strchunk):
+    res = {}
+    if standalone_courtname.match(strchunk):
+        res['court'] = strchunk
+        res['complete'] = True
+        return res
+    # elif re.search('Migrationsverket överklagade migrationsdomstolens beslut', strchunk):
+    #     return True
+    else:
+        for sentence in split_sentences(strchunk):
+            for r in (instans_matchers):
+                m = r.match(sentence)
+                if m:
+                    mg = m.groupdict()
+                    parse_swed = DV().parse_swedish_date
+                    parse_iso = DV().parse_iso_date
+                    res['court'] = mg['court']
+                    if 'date' in mg:
+                        try:
+                            res['date'] = parse_swed(mg['date'])
+                        except ValueError:
+                            res['date'] = parse_iso(mg['date'])
+                    if 'constitution' in mg:
+                        res['constitution'] = parse_constitution(mg['constitution'])
+                    return res
+    return res
+
+def parse_constitution(strchunk):
+    res = []
+    for thing in strchunk.split(", "):
+        if thing in ("ordförande", "referent"):
+            res[-1]['position'] = thing
+        elif thing.startswith("ordförande "):
+            pos, name = thing.split(" ", 1)
+            res.append({'name': name,
+                        'position': pos})
+        else:
+            res.append({'name': thing})
+    return res
+    
+def analyze_dom(strchunk):
+    return False
+    
+    
+    
 class DV(SwedishLegalSource):
     alias = "dv"
     downloaded_suffix = ".zip"
@@ -188,6 +248,11 @@ class DV(SwedishLegalSource):
     DCTERMS = Namespace(util.ns['dcterms'])
     sparql_annotations = "res/sparql/dv-annotations.rq"
     xslt_template = "res/xsl/dv.xsl"
+
+    def qualified_class_name(self):
+        return "ferenda.sources.legal.se.dv.DV"
+
+
     @classmethod
     def relate_all_setup(cls, config):
         # FIXME: If this was an instancemethod, we could use
@@ -1289,7 +1354,8 @@ class DV(SwedishLegalSource):
         courtnames = ["Linköpings tingsrätt",
                       "Lunds tingsrätt",
                       "Umeå tingsrätt",
-                      "Stockholms tingsrätt", 
+                      "Stockholms tingsrätt",
+                      "Gotlands TR",
 
                       "Göta hovrätt",
                       "Hovrätten över Skåne och Blekinge",
@@ -1307,9 +1373,13 @@ class DV(SwedishLegalSource):
             chunk = parser.reader.peek()
             return str(chunk) in ("I", "II", "III")
 
-        def is_instans(parser):
+        def is_instans(parser, chunk=None):
+            """Determines whether the current position starts a new instans part of the report.
+
+            """
             chunk = parser.reader.peek()
             strchunk = str(chunk)
+            return analyze_instans(strchunk)
             if strchunk in courtnames:
                 return True
             # elif re.search('Migrationsverket överklagade migrationsdomstolens beslut', strchunk):
@@ -1346,7 +1416,7 @@ class DV(SwedishLegalSource):
             strchunk = str(parser.reader.peek())
             if strchunk == "Skäl":
                 return True
-            if re.match("(Tingsrätten|Hovrätten|HD|Högsta förvaltningsdomstolen) \([^)]*\) (meddelade|anförde|fastställde|yttrade)", strchunk):
+            if re.match("(Tingsrätten|TR[:\.]n|Hovrätten|HD|Högsta förvaltningsdomstolen) \([^)]*\) (meddelade|anförde|fastställde|yttrade)", strchunk):
                 return True
 
         def is_domslut(parser):
@@ -1604,3 +1674,4 @@ class DV(SwedishLegalSource):
             'http://rinfo.lagrummet.se/ref/rff/mig': 'Migrationsöverdomstolen',
             'http://rinfo.lagrummet.se/ref/rff/mod': 'Miljööverdomstolen'
             }
+
