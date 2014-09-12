@@ -25,15 +25,19 @@ from lxml import etree
 from bs4 import BeautifulSoup, NavigableString
 
 # my libs
-from ferenda import Document, DocumentStore, Describer, WordReader, FSMParser, Facet
+from ferenda import (Document, DocumentStore, Describer, WordReader, FSMParser,
+                     Facet, TocPage, TocPageset)
 from ferenda.decorators import managedparsing, newstate
 from ferenda import util, fulltextindex
-from ferenda.sources.legal.se.legalref import LegalRef, Link
-from ferenda.elements import Body, Paragraph, CompoundElement, OrdinalElement, Heading, Link
+from ferenda.sources.legal.se.legalref import LegalRef
+from ferenda.elements import (Body, Paragraph, CompoundElement, OrdinalElement,
+                              Heading, Link)
 
 from ferenda.elements.html import Strong, Em
-from ferenda.sources.legal.se import SwedishLegalSource, SwedishCitationParser, RPUBL
-# from swedishlegalsource import SwedishLegalSource, SwedishCitationParser, RPUBL
+from ferenda.sources.legal.se import (SwedishLegalSource,
+                                      SwedishCitationParser, RPUBL)
+# from swedishlegalsource import (SwedishLegalSource, SwedishCitationParser,
+#                                 RPUBL)
 DCTERMS = Namespace(util.ns['dcterms'])
 PROV = Namespace(util.ns['prov'])
 
@@ -99,7 +103,8 @@ class DVStore(DocumentStore):
     def pathfrag_to_basefile(self, pathfrag):
         return pathfrag
 
-    def downloaded_path(self, basefile, version=None, attachment=None, suffix=None):
+    def downloaded_path(self, basefile, version=None, attachment=None,
+                        suffix=None):
         if not suffix:
             if os.path.exists(self.path(basefile, "downloaded", ".doc")):
                 suffix = ".doc"
@@ -1662,26 +1667,81 @@ class DV(SwedishLegalSource):
         return soup
     
     def facets(self):
-        return [Facet(RDF.type),
+        # NOTE: it's important that RPUBL.rattsfallspublikation is the
+        # first facet (toc_pagesets depend on it)
+        def myselector(row, binding, resource_graph=None):
+            return (util.uri_leaf(row['rpubl_rattsfallspublikation']),
+                    row['rpubl_arsutgava'])
+            
+        return [Facet(RPUBL.rattsfallspublikation,
+                      indexingtype=fulltextindex.Resource(),
+                      use_for_toc=True,
+                      #selector=Facet.resourcelabel,
+                      selector=myselector,
+                      key=Facet.resourcelabel,
+                      identificator=Facet.term,
+                      dimension_type='ref'),
+                Facet(RDF.type,
+                      use_for_toc=False),
                 Facet(RPUBL.referatrubrik,
-                      indexingtype = fulltextindex.Text(boost=4),
-                      toplevel_only = True,
-                      use_for_toc = False),
-                Facet(DCTERMS.identifier),
-                Facet(RPUBL.rattsfallspublikation,
-                      indexingtype = fulltextindex.Resource(),
-                      use_for_toc = True,
-                      selector = Facet.resourcelabel,
-                      key = Facet.resourcelabel,
-                      identificator = Facet.term,
-                      dimension_type = 'ref'),
+                      indexingtype=fulltextindex.Text(boost=4),
+                      toplevel_only=True,
+                      use_for_toc=False),
+                Facet(DCTERMS.identifier,
+                      use_for_toc=False),
                 Facet(RPUBL.arsutgava,
-                      indexingtype = fulltextindex.Label(),
-                      use_for_toc = True,
-                      selector = Facet.defaultselector,
-                      key = Facet.defaultselector,
-                      dimension_type = 'value')
+                      indexingtype=fulltextindex.Label(),
+                      use_for_toc=False,
+                      selector=Facet.defaultselector,
+                      key=Facet.defaultselector,
+                      dimension_type='value')
                 ]
+
+    def toc_pagesets(self, data, facets):
+        # our primary facet is RPUBL.rattsfallspublikation, but we
+        # need to create one pageset for each value thereof.
+        pagesetdict = {}
+        selector_values = {}
+        facet = facets[0]  # should be the RPUBL.rattsfallspublikation one
+        for row in data:
+            pagesetid = row['rpubl_rattsfallspublikation']
+            if pagesetid not in pagesetdict:
+                label = Facet.resourcelabel(row, 'rpubl_rattsfallspublikation',
+                                            self.commondata)
+                pagesetdict[pagesetid] = TocPageset(label=label,
+                                                    predicate=pagesetid,
+                                                    pages=[])
+            selected = row['rpubl_arsutgava']
+            selector_values[(pagesetid, selected)] = True
+        
+        for (pagesetid, value) in sorted(list(selector_values.keys())):
+            pageset = pagesetdict[pagesetid]
+            pageset.pages.append(TocPage(linktext=value,
+                                         title="%s från %s" % (pageset.label, value),
+                                         binding=util.uri_leaf(pagesetid),
+                                         value=value))
+        return list(pagesetdict.values())
+
+    def toc_select_for_pages(self, data, pagesets, facets):
+        facet = facets[0]
+        res = {}
+        documents = {}
+        for row in data:
+            key = facet.selector(row, None)
+            if key not in documents:
+                documents[key] = []
+            documents[key].append(row)
+        pagesetdict = {}
+        for pageset in pagesets:
+            pagesetdict[util.uri_leaf(pageset.predicate)] = pageset
+        for (binding, value) in documents.keys():
+            # binding = 'hfd' value = '2010'
+            pageset = pagesetdict[binding]
+            for page in pageset.pages: # 1993, 1994, 1995 ...
+                s = sorted(documents[(binding, value)])
+                res[(page.binding, page.value)] = [self.toc_item(binding, row)
+                                                   for row in s]
+        return res
 
     def toc_item(self, binding, row):
         r = [Strong([Link(row['dcterms_identifier'],
@@ -1689,7 +1749,7 @@ class DV(SwedishLegalSource):
         if 'rpubl_referatrubrik' in row:
             r.append(row['rpubl_referatrubrik'])
         return r
-
+        
     # gonna need this for news_criteria()
     pubs = {'http://rinfo.lagrummet.se/ref/rff/nja': 'Högsta domstolen',
             'http://rinfo.lagrummet.se/ref/rff/rh': 'Hovrätterna',
