@@ -371,7 +371,7 @@ class DV(SwedishLegalSource):
         # specified OR if we've never downloaded before
         recurse = False
 
-        if self.config.force or not self.config.lastdownload:
+        if self.config.force or not self.config.lastdownload or isinstance(self.config.lastdownload, type):
             recurse = True
 
         self.downloadcount = 0  # number of files extracted from zip files
@@ -387,7 +387,7 @@ class DV(SwedishLegalSource):
         except MaxDownloadsReached:  # ok we're done!
             pass
 
-    def download_ftp(self, dirname, recurse, user, password, connection=None):
+    def download_ftp(self, dirname, recurse, user=None, password=None, connection=None):
         self.log.debug('Listing contents of %s' % dirname)
         lines = []
         if not connection:
@@ -401,7 +401,7 @@ class DV(SwedishLegalSource):
             parts = line.split()
             filename = parts[-1].strip()
             if line.startswith('d') and recurse:
-                self.download(filename, recurse)
+                self.download_ftp(filename, recurse, connection=connection)
             elif line.startswith('-'):
                 basefile = os.path.splitext(filename)[0]
                 if dirname:
@@ -661,9 +661,9 @@ class DV(SwedishLegalSource):
                 if coll == "HDO" and not avd_p:
                     avd_p = find_month_in_previous(basefile)
                 if avd_p:
-                    fp.write(repr(avd_p))
+                    fp.write(str(avd_p))
             if fp:
-                fp.write(repr(p))
+                fp.write(str(p))
                 if filetype != "docx":
                     fp.write("\n")
         if fp: # should always be the case
@@ -1734,13 +1734,11 @@ class DV(SwedishLegalSource):
         pagesetdict = {}
         for pageset in pagesets:
             pagesetdict[util.uri_leaf(pageset.predicate)] = pageset
-        for (binding, value) in documents.keys():
-            # binding = 'hfd' value = '2010'
+        for (binding, value) in sorted(documents.keys()):
             pageset = pagesetdict[binding]
-            for page in pageset.pages: # 1993, 1994, 1995 ...
-                s = sorted(documents[(binding, value)])
-                res[(page.binding, page.value)] = [self.toc_item(binding, row)
-                                                   for row in s]
+            s = sorted(documents[(binding, value)])
+            res[(binding, value)] = [self.toc_item(binding, row)
+                                     for row in s]
         return res
 
     def toc_item(self, binding, row):
