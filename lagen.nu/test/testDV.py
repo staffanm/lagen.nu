@@ -9,6 +9,7 @@ from datetime import date
 
 # SUT
 import dv
+from ferenda import fsmparser
 
 
 class TestDV(RepoTester):
@@ -19,61 +20,177 @@ parametrize_repotester(TestDV)
 
 class TestDVUnit(unittest.TestCase):
 
-    def doctest(self):
-        """
-        exmmple:
+    def t(self, want, testdata):
+        p = dv.DV.get_parser()
+        p.reader = fsmparser.Peekable([testdata])
+        p._state_stack = ["notbody"] # to avoid the special fallback rule in is_instans
+        f = p.recognizers[2]
+        assert f.__name__ == "is_instans", "The order of recognizers seem to have shifted, expected 'is_instans', got %s" % f.__name__
+        self.assertEqual(want, f(p))
         
-            >>> # 2003_not_1
-            >>> is_instans(None, "Den 9:e. 1. (Ö 4629-01) V.B. och D.B. mot RÅ ang. resning. V.B. och D.B., som är bröder, åtalades vid Sollentuna TR för mord alternativt medhjälp till mord.")
-            True
-            >>> is_instans(None, "HD: Skäl. I resningsansökningarna har V.B. och D.B. åberopat bestämmelsen i 58:2 4 RB")
-            True
-            >>> # 2003_not_11
-            >>> is_instans(None, "Den 6:e. 11. (Ö 52-03) K.P. ang. avvisande av stämningsansökan. K.P. ansökte i Svea HovR om att stämning skulle utfärdas mot H.S., f.d. lagman i Falu TR.")
-            >>> # 2003_not_18
-            >>> is_instans(None, "Den 14:e. 18. (T 4958-98) M.P. mot Trygg-Hansa Trygg-Hansa ang. trafikskadeersättning. M.P. yrkade i Stockholms TR att TR:n skulle fastställa att...")
-            >>> # 2008_not_51
-            >>> is_instans(None, "<em>Stockholms tingsrätt dömde</em>den 5 oktober 2007 F.T. för förseelse mot yrkestrafikförordningen m.m. till penningböter")
-            >>> # 2008_not_52
-            >>> is_instans(None, "Huddinge tingsrätt förordnade den 4 november 1992 att C.T. skulle ha ensam vårdnad om dottern.")
-            """
     def test_plain_courtname(self):
-        self.assertEqual({'court': 'Örebro tingsrätt'},
-                         dv.analyze_instans('Örebro tingsrätt'))
-        self.assertEqual({'court': 'Hovrätten över Skåne och Blekinge'},
-                         dv.analyze_instans('Hovrätten över Skåne och Blekinge'))
-        self.assertEqual({'court': 'Högsta domstolen'},
-                         dv.analyze_instans('Högsta domstolen'))
+        self.t({'court': 'Örebro tingsrätt', 'complete': True},
+               'Örebro tingsrätt')
+        self.t({'court': 'Hovrätten över Skåne och Blekinge', 'complete': True},
+               'Hovrätten över Skåne och Blekinge')
+        self.t({'court': 'Högsta domstolen', 'complete': True},
+               'Högsta domstolen')
 
     def test_not_courtname(self):
-        self.assertEqual({},
-                         dv.analyze_instans('Jönköpings tingsrätt beslutade att...'))
+        self.t({},
+               'Jönköpings tingsrätt beslutade att...')
 
     def test_fr_forstainstans(self):
-        self.assertEqual({'court': 'Försäkringskassan',
-                          'date': date(2010, 8, 17)},
-                         dv.analyze_instans('S.G.P. fick genom dom av Högsta förvaltningsdomstolen den 20 juli 2010 rätt till halv sjukersättning för perioden augusti 2006 - juni 2008. Försäkringskassan beslutade därefter den 17 augusti 2010 att S.G.P. inte hade rätt till någon utbetalning med anledning av domen.'))
+        self.t({'court': 'Försäkringskassan',
+                'date': date(2010, 8, 17)},
+               'S.G.P. fick genom dom av Högsta förvaltningsdomstolen den 20 '
+               'juli 2010 rätt till halv sjukersättning för perioden augusti '
+               '2006 - juni 2008. Försäkringskassan beslutade därefter den 17 '
+               'augusti 2010 att S.G.P. inte hade rätt till någon '
+               'utbetalning med anledning av domen.')
 
     def test_fr_yttrade(self):
-        self.assertEqual({'court': 'Förvaltningsrätten i Göteborg',
-                          'date': date(2011, 4, 21),
-                          'constitution': [{'name': 'Hasselberg',
-                                            'position': 'ordförande'}]},
-                         dv.analyze_instans('Förvaltningsrätten i Göteborg (2011-04-21, ordförande Hasselberg) yttrade: Tillämplig bestämmelse'))
-        self.assertEqual({'court': 'Kammarrätten i Göteborg',
-                          'date': date(2011, 11, 2),
-                          'constitution': [{'name': 'Nyström'},
-                                           {'name': 'Nilsson', 'position': 'referent'},
-                                           {'name': 'Sjögren Samuelsson'}]},
-                         dv.analyze_instans('Kammarrätten i Göteborg (2011-11-02, Nyström, Nilsson, referent, Sjögren Samuelsson) yttrade: Frågan i målet är...'))
-        self.assertEqual({'court': 'Högsta förvaltningsdomstolen',
-                          'date': date(2013, 5, 27),
-                          'constitution': [{'name': 'Jermsten'},
-                                           {'name': 'Dexe'},
-                                           {'name': 'Silfverberg'},
-                                           {'name': 'Bull'}]},
-                         dv.analyze_instans('Högsta förvaltningsdomstolen (2013-05-27, Jermsten, Dexe, Silfverberg, Bull) yttrade:'))
-    
+        self.t({'court': 'Förvaltningsrätten i Göteborg',
+                'date': date(2011, 4, 21),
+                'constitution': [{'name': 'Hasselberg',
+                                  'position': 'ordförande'}]},
+               'Förvaltningsrätten i Göteborg (2011-04-21, ordförande '
+               'Hasselberg) yttrade: Tillämplig bestämmelse')
+        self.t({'court': 'Kammarrätten i Göteborg',
+                'date': date(2011, 11, 2),
+                'constitution': [{'name': 'Nyström'},
+                                 {'name': 'Nilsson', 'position': 'referent'},
+                                 {'name': 'Sjögren Samuelsson'}]},
+               'Kammarrätten i Göteborg (2011-11-02, Nyström, Nilsson, '
+               'referent, Sjögren Samuelsson) yttrade: Frågan i målet är...')
+        self.t({'court': 'Högsta förvaltningsdomstolen',
+                'date': date(2013, 5, 27),
+                'constitution': [{'name': 'Jermsten'},
+                                 {'name': 'Dexe'},
+                                 {'name': 'Silfverberg'},
+                                 {'name': 'Bull'}]},
+               'Högsta förvaltningsdomstolen (2013-05-27, Jermsten, Dexe, '
+               'Silfverberg, Bull) yttrade:')
 
-    
-            
+    def test_tr_aklagare(self):
+        self.t({'court': 'Malmö TR'},
+               'Allmän åklagare yrkade vid Malmö TR ansvar å S.S')
+        self.t({'court': 'Södra Roslags TR'},
+               'Allmän åklagare yrkade vid Södra Roslags TR ansvar på T.O.')
+        self.t({'court': 'Sollefteå TR'},
+               'Allmän åklagare yrkade efter ansökan om stämning å E.T. vid '
+               'Sollefteå TR, att')
+        self.t({'court': 'Stockholms TR'},
+               'Allmän åklagare yrkade efter stämning å handelsbolaget och '
+               'B.F. vid Stockholms TR, att')
+
+    def test_tr_karande(self):
+        self.t({'court': ''},
+               'Efter ansökan om stämning å H.N. vid Södra Roslags TR yrkade '
+               'bolaget förpliktande för H.N. att till bolaget utge')
+        self.t({'court': ''},
+               'Mjölby - Svartådalen Energiverk AB (bolaget) förde efter '
+               'stämning å lantbrukaren i H.T. vid Motala TR den talan som '
+               'framgår')
+        self.t({'court': ''},
+               'Lillebil yrkade efter stämning å Stockholms läns landsting '
+               'vid Stockholms TR att landstinget skulle')
+
+    def test_tr_ansokan(self):
+        self.t({'court': ''},
+               'Makarna H.A., född d 15 maj 1955, och M.E., född d 21 sept '
+               '1967, ansökte vid Helsingborgs TR om tillstånd att såsom '
+               'adoptivbarn')
+
+    def test_hovr_aklagare(self):
+        self.t({'court': ''},
+               'Riksåklagaren väckte i Svea HovR åtal mot rådmannen Carin A. '
+               'för tjänstefel enligt ')
+        
+    def test_hovr(self):
+        self.t({'court': ''},
+               'B.A. fullföljde talan i Svea HovR och yrkade i första hand att')
+        self.t({'court': ''},
+               'Bolaget fullföljde talan i Göta HovR och yrkade bifall till sin vid TR:n förda talan. ')
+        self.t({'court': ''},
+               'Broschyrbolaget fullföljde talan i HovR:n för Västra Sverige och yrkade att')
+        self.t({'court': ''},
+               'Lillebil överklagade i Svea HovR och yrkade att HovR:n skulle fastställa att')
+        self.t({'court': ''},
+               'M.B. överklagade TR:ns dom endast i skadeståndsdelen i HovR:n för Nedre Norrland, som d. 23 juni 1998 förelade ')
+
+    def test_hd(self):
+        self.t({'court': ''},
+               'B.A. sökte revision och yrkade, att gärningen måtte bedömas')
+        self.t({'court': ''},
+               'H.T. (ombud advokaten O.R.) sökte revision och yrkade att HD '
+               'måtte fastställa TR:ns dom i huvudsaken')
+        self.t({'court': ''},
+               'Såväl Broschyrbolaget (ombud advokaten G.R.) som Sperlingsholm'
+               ' (ombud advokaten B.G.P.) sökte revision. ')
+        self.t({'court': ''},
+               'H.A. och M.E. (ombud för båda advokaten G.N.) anförde besvär '
+               'och yrkade bifall till adoptionsansökningen.')
+        self.t({'court': ''},
+               'Lillebil (ombud advokaten M.L.) överklagade och yrkade bifall '
+               'till sin talan i HovR:n. ')
+        self.t({'court': ''},
+               'T.L. överklagade för egen del och yrkade att HD skulle besluta'
+               ' att ersättning')
+        self.t({'court': ''},
+               'Carin A. (offentlig försvarare advokaten P.A.) överklagade och '
+               'yrkade i själva saken att HD skulle befria henne från ansvar')
+
+    def test_hd_ansokan(self):
+        self.t({'court': ''},
+               'S.W. anhöll i ansökan som inkom till HD d 14 okt 1980 om '
+               'återställande av försutten tid')
+
+    def test_hd_skrivelse(self):
+        self.t({'court': ''},
+               'Kalmar tingsrätt anförde i en till HD den 1 november 2010 '
+               'ställd skrivelse i huvudsak följande')
+
+
+    def test_forvaltningsmynd(self):
+        self.t({'court': ''},
+               'I ansökan hos Skatterättsnämnden om förhandsbesked anförde X bl.a. följande. ')
+        self.t({'court': ''},
+               'Skattemyndigheten beslutade i två skilda beslut att påföra Bostadsaktiebolaget Poseidon ')
+        self.t({'court': ''},
+               'I en ansökan hos Skatterättsnämnden om förhandsbesked anförde Advokat X AB och Advokat Y AB')
+        self.t({'court': ''},
+               'Omsorgsnämnden i Trollhättans kommun bedömde i biståndsbeslut i oktober 2003 respektive december 2003 att')
+        self.t({'court': ''},
+               'AB Cerbo (bolaget) yrkade i skattedeklaration för december 2006 avdrag med 193 180 kr avseende ingående mervärdesskatt vid förvärv av konsulttjänster från Finland. Tjänsterna avsåg biträde vid avyttring av ett finskt dotterbolag. Skatteverket vägrade i beslut den 14 februari 2007 avdraget med följande motivering: ')
+
+
+    def test_fr(self):
+        self.t({'court': ''},
+               'Bolaget överklagade och yrkade att påförd avkastningsskatt skulle ...')
+        self.t({'court': ''},
+               'Makarna överklagade omsorgsnämndens beslut hos länsrätten och anförde bl.a. följande.')
+        self.t({'court': ''},
+               'Bolaget överklagade Skatteverkets beslut hos länsrätten och yrkade')
+        
+
+    def test_kamr(self):
+        self.t({'court': ''},
+               'Bolaget överklagade och yrkade att kammarrätten skulle ändra länsrättens domar och undanröja')
+        self.t({'court': ''},
+               'A-B.C. och A.C. överklagade och yrkade att kammarrätten, med ändring av länsrättens domar, skulle')
+        self.t({'court': ''},
+               'Skatteverket överklagade länsrättens dom hos kammarrätten och yrkade i första hand ')
+        
+        
+    def test_hfd(self):
+        self.t({'court': ''},
+               'I besvär hos Regeringsrätten yrkade X att förhandsbeskedet skulle ändras på så sätt att')
+        self.t({'court': ''},
+               'Bolaget fullföljde sin talan.')
+        self.t({'court': ''},
+               'Bolagen samt X och Y överklagade och yrkade att Regeringsrätten, med ändring av Skatterättsnämndens beslut, skulle')
+        self.t({'court': ''},
+               'A-B.C. och dödsboet efter A.C. överklagade kammarrättens domar och anförde bl.a. följande. ')
+        self.t({'court': ''},
+               'Skatteverket överklagade kammarrättens dom och yrkade att bolaget inte')

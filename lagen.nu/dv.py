@@ -176,65 +176,6 @@ class Tillagg(DomElement): pass # dcterms:author <- name
 class Endmeta(DomElement): pass
 
 
-# these helper methods are used by structure_body, but put in module
-# scope for easier initial testing
-courtnames = []
-instans_matchers = []
-standalone_courtname = re.compile("^(Högsta domstolen|Hovrätten (över|för) [A-ZÅÄÖa-zåäö ]+|([A-ZÅÄÖ][a-zåäö]+ )(tingsrätt|hovrätt))$")
-rx = ('(?P<court>Försäkringskassan|Migrationsverket) beslutade (därefter|) den (?P<date>\d+ \w+ \d+) att',
-      '(A överklagade beslutet till |)(?P<court>(Förvaltningsrätten|Länsrätten|Kammarrätten) i \w+(| län)(|, migrationsdomstolen|, Migrationsöverdomstolen)|Högsta förvaltningsdomstolen) \((?P<date>\d+-\d+-\d+), (?P<constitution>[\w ,]+)\)')
-instans_matchers = [re.compile(x, re.UNICODE) for x in rx]
-
-def split_sentences(text):
-    text = util.normalize_space(text)
-    text += " "
-    return text.split(". ")
-
-def analyze_instans(strchunk):
-    res = {}
-    if standalone_courtname.match(strchunk):
-        res['court'] = strchunk
-        res['complete'] = True
-        return res
-    # elif re.search('Migrationsverket överklagade migrationsdomstolens beslut', strchunk):
-    #     return True
-    else:
-        for sentence in split_sentences(strchunk):
-            for r in (instans_matchers):
-                m = r.match(sentence)
-                if m:
-                    mg = m.groupdict()
-                    parse_swed = DV().parse_swedish_date
-                    parse_iso = DV().parse_iso_date
-                    res['court'] = mg['court']
-                    if 'date' in mg:
-                        try:
-                            res['date'] = parse_swed(mg['date'])
-                        except ValueError:
-                            res['date'] = parse_iso(mg['date'])
-                    if 'constitution' in mg:
-                        res['constitution'] = parse_constitution(mg['constitution'])
-                    return res
-    return res
-
-def parse_constitution(strchunk):
-    res = []
-    for thing in strchunk.split(", "):
-        if thing in ("ordförande", "referent"):
-            res[-1]['position'] = thing
-        elif thing.startswith("ordförande "):
-            pos, name = thing.split(" ", 1)
-            res.append({'name': name,
-                        'position': pos})
-        else:
-            res.append({'name': thing})
-    return res
-    
-def analyze_dom(strchunk):
-    return False
-    
-    
-    
 class DV(SwedishLegalSource):
     alias = "dv"
     downloaded_suffix = ".zip"
@@ -1356,24 +1297,19 @@ class DV(SwedishLegalSource):
         return b
 
     def structure_body(self, paras):
-        courtnames = ["Linköpings tingsrätt",
-                      "Lunds tingsrätt",
-                      "Umeå tingsrätt",
-                      "Stockholms tingsrätt",
-                      "Gotlands TR",
+        return self.get_parser().parse(paras)
 
-                      "Göta hovrätt",
-                      "Hovrätten över Skåne och Blekinge",
-                      "Hovrätten för Övre Norrland",
-                      "Svea hovrätt",
+    @staticmethod
+    def get_parser():
+        re_courtname = re.compile("^(Högsta domstolen|Hovrätten (över|för) [A-ZÅÄÖa-zåäö ]+|([A-ZÅÄÖ][a-zåäö]+ )(tingsrätt|hovrätt))$")
 
-                      "Högsta domstolen"]
-
+        # note: depending on the final instance court (which we know
+        # from basefile) we can select a subset of these regexes)
         rx = ('(?P<court>Försäkringskassan|Migrationsverket) beslutade (därefter|) den (?P<date>\d+ \w+ \d+) att',
-              '(A överklagade beslutet till |)(?P<court>(Förvaltningsrätten|Länsrätten|Kammarrätten) i \w+(| län)(|, migrationsdomstolen|, Migrationsöverdomstolen)|Högsta förvaltningsdomstolen) \((?P<date>\d+-\d+\d+)')
-        instans_matchers = [re.compile(x, re.UNICODE) for x in rx]
+              '(A överklagade beslutet till |)(?P<court>(Förvaltningsrätten|Länsrätten|Kammarrätten) i \w+(| län)(|, migrationsdomstolen|, Migrationsöverdomstolen)|Högsta förvaltningsdomstolen) \((?P<date>\d+-\d+-\d+), (?P<constitution>[\w ,]+)\)',
+              'Allmän åklagare yrkade (.*)vid (?P<court>(([A-ZÅÄÖ][a-zåäö]+ )+)(TR|tingsrätt))')
+        re_instans_pat = [re.compile(x, re.UNICODE) for x in rx]
             
-        
         def is_delmal(parser):
             chunk = parser.reader.peek()
             return str(chunk) in ("I", "II", "III")
@@ -1384,20 +1320,14 @@ class DV(SwedishLegalSource):
             """
             chunk = parser.reader.peek()
             strchunk = str(chunk)
-            return analyze_instans(strchunk)
-            if strchunk in courtnames:
-                return True
-            # elif re.search('Migrationsverket överklagade migrationsdomstolens beslut', strchunk):
-            #     return True
+            res = analyze_instans(strchunk)
+            if res:
+                return res
             elif parser._state_stack == ['body']:
                 # if we're at root level, *anything* starts a new instans
                 return True
             else:
-                for sentence in split_sentences(strchunk):
-                    for r in (instans_matchers):
-                        if r.match(sentence):
-                            return True
-            return False
+                return {}
 
         def is_heading(parser):
             chunk = parser.reader.peek()
@@ -1443,6 +1373,60 @@ class DV(SwedishLegalSource):
         def is_paragraph(parser):
             return True
 
+        # Turns out, this is really difficult if you consider
+        # abbreviations.  This particular heuristic splits on periods
+        # only (Sentences ending with ? or ! are rare in legal text)
+        # and only if followed by a capital letter (ie next sentence)
+        # or EOF. Does not handle things like "Mr. Smith" but that's
+        # also rare in swedish text.
+        def split_sentences(text):
+            text = util.normalize_space(text)
+            text += " "
+            return re.split("\. (?=[A-ZÅÄÖ]|$)", text)
+
+        def analyze_instans(strchunk):
+            res = {}
+            if re_courtname.match(strchunk):
+                res['court'] = strchunk
+                res['complete'] = True
+                return res
+            # elif re.search('Migrationsverket överklagade migrationsdomstolens beslut', strchunk):
+            #     return True
+            else:
+                for sentence in split_sentences(strchunk):
+                    for r in (re_instans_pat):
+                        m = r.match(sentence)
+                        if m:
+                            mg = m.groupdict()
+                            parse_swed = DV().parse_swedish_date
+                            parse_iso = DV().parse_iso_date
+                            res['court'] = mg['court']
+                            if 'date' in mg:
+                                try:
+                                    res['date'] = parse_swed(mg['date'])
+                                except ValueError:
+                                    res['date'] = parse_iso(mg['date'])
+                            if 'constitution' in mg:
+                                res['constitution'] = parse_constitution(mg['constitution'])
+                            return res
+            return res
+
+        def parse_constitution(strchunk):
+            res = []
+            for thing in strchunk.split(", "):
+                if thing in ("ordförande", "referent"):
+                    res[-1]['position'] = thing
+                elif thing.startswith("ordförande "):
+                    pos, name = thing.split(" ", 1)
+                    res.append({'name': name,
+                                'position': pos})
+                else:
+                    res.append({'name': thing})
+            return res
+
+        def analyze_dom(strchunk):
+            return False
+
         # FIXME: This and make_paragraph ought to be expressed as
         # generic functions in the ferenda.fsmparser module
         @newstate('body')
@@ -1475,12 +1459,6 @@ class DV(SwedishLegalSource):
                     i = Instans([chunk])
                     
             return parser.make_children(i)
-
-        def split_sentences(text):
-            text = util.normalize_space(text)
-            text += " "
-            return text.split(". ")
-                
 
         def make_heading(parser):
             # a heading is by definition a single line
@@ -1623,8 +1601,7 @@ class DV(SwedishLegalSource):
         p.initial_state = "body"
         p.initial_constructor = make_body
         p.debug = os.environ.get('FERENDA_FSMDEBUG', False)
-        return p.parse(paras)
-
+        return p
 
     def _simplify_ooxml(self, filename, pretty_print=True):
         # simplify the horrendous mess that is OOXML through simplify-ooxml.xsl
