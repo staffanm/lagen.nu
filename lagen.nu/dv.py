@@ -1305,10 +1305,25 @@ class DV(SwedishLegalSource):
 
         # note: depending on the final instance court (which we know
         # from basefile) we can select a subset of these regexes)
-        rx = ('(?P<court>Försäkringskassan|Migrationsverket) beslutade (därefter|) den (?P<date>\d+ \w+ \d+) att',
-              '(A överklagade beslutet till |)(?P<court>(Förvaltningsrätten|Länsrätten|Kammarrätten) i \w+(| län)(|, migrationsdomstolen|, Migrationsöverdomstolen)|Högsta förvaltningsdomstolen) \((?P<date>\d+-\d+-\d+), (?P<constitution>[\w ,]+)\)',
-              'Allmän åklagare yrkade (.*)vid (?P<court>(([A-ZÅÄÖ][a-zåäö]+ )+)(TR|tingsrätt))')
-        re_instans_pat = [re.compile(x, re.UNICODE) for x in rx]
+        rx = (
+            ('(?P<court>Försäkringskassan|Migrationsverket) beslutade (därefter|) den (?P<date>\d+ \w+ \d+) att', 'match'),
+            ('(A överklagade beslutet till |)(?P<court>(Förvaltningsrätten|Länsrätten|Kammarrätten) i \w+(| län)(|, migrationsdomstolen|, Migrationsöverdomstolen)|Högsta förvaltningsdomstolen) \((?P<date>\d+-\d+-\d+), (?P<constitution>[\w ,]+)\)', 'match'),
+            ('Allmän åklagare yrkade (.*)vid (?P<court>(([A-ZÅÄÖ][a-zåäö]+ )+)(TR|tingsrätt))', 'match'),
+            ('stämning å (?P<svarande>.*) vid (?P<court>(([A-ZÅÄÖ][a-zåäö]+ )+)(TR|tingsrätt))', 'search'),
+            ('ansökte vid (?P<court>(([A-ZÅÄÖ][a-zåäö]+ )+)(TR|tingsrätt)) om ', 'search'),
+            ('Riksåklagaren väckte i (?P<court>HD|HovR:n (över|för) ([A-ZÅÄÖ][a-zåäö]+ )+|[A-ZÅÄÖ][a-zåäö]+ HovR) åtal', 'match'),
+            ('(?P<karande>[\w\. ]+) (fullföljde talan|överklagade) (|TR:ns dom.*)i (?P<court>HD|HovR:n (över|för) (Skåne och Blekinge|Västra Sverige|Nedre Norrland|Övre Norrland)|(Svea|Göta) HovR)', 'match'),
+            ('I (en |)ansökan hos (?P<court>\w+) om förhandsbesked', 'match'),
+            ('(?P<court>\w+) beslutade ([\w ]+) att', 'match'),
+            ('(?P<court>[\w ]+) (bedömde|vägrade) i (bistånds|)beslut (|den (?P<date>\d+ \w+ \d+))', 'match'),
+            ('(?P<karanden>[\w\.\(\) ]+) sökte revision och yrkade(, i första hand,|,|) att (?P<court>HD|)', 'match'),
+            ('(?P<karanden>[\w\.\(\) ]+) sökte revision$', 'match'),
+            ('(?P<karanden>[\w\.\(\) ]+) (anförde besvär|överklagade) och yrkade bifall till (sin talan i (?P<prevcourt>HovR:n|TR:n)|)', 'match'),
+            ('(?P<karanden>[\w\.\(\) ]+) överklagade (för egen del |)och yrkade (i själva saken |)att (?P<court>HD|HovR:n)', 'match'),
+            
+        )
+        
+        re_instans_matchers = [getattr(re.compile(x, re.UNICODE), method) for (x, method) in rx]
             
         def is_delmal(parser):
             chunk = parser.reader.peek()
@@ -1386,22 +1401,30 @@ class DV(SwedishLegalSource):
 
         def analyze_instans(strchunk):
             res = {}
+            # Case 1: Fixed headings indicating new instance
             if re_courtname.match(strchunk):
                 res['court'] = strchunk
                 res['complete'] = True
                 return res
-            # elif re.search('Migrationsverket överklagade migrationsdomstolens beslut', strchunk):
-            #     return True
             else:
-                for sentence in split_sentences(strchunk):
-                    for r in (re_instans_pat):
-                        m = r.match(sentence)
+                # case 2: common wording patterns indicating new
+                # instance the needed sentence is usually 1st or 2nd
+                # (occassionally 3rd), searching more yields risk of
+                # false positives.
+                for sentence in split_sentences(strchunk)[:3]:
+                    for r in (re_instans_matchers):
+                        m = r(sentence)
                         if m:
                             mg = m.groupdict()
-                            parse_swed = DV().parse_swedish_date
-                            parse_iso = DV().parse_iso_date
-                            res['court'] = mg['court']
-                            if 'date' in mg:
+                            if 'court' in mg and mg['court']:
+                                res['court'] = mg['court'].strip()
+                            else:
+                                res['court'] = True
+                            if 'prevcourt' in mg and mg['prevcourt']:
+                                res['prevcourt'] = mg['prevcourt'].strip()
+                            if 'date' in mg and mg['date']:
+                                parse_swed = DV().parse_swedish_date
+                                parse_iso = DV().parse_iso_date
                                 try:
                                     res['date'] = parse_swed(mg['date'])
                                 except ValueError:
@@ -1442,22 +1465,15 @@ class DV(SwedishLegalSource):
         def make_instans(parser):
             chunk = parser.reader.next()
             strchunk = str(chunk)
-            if strchunk in courtnames:
+            idata = analyze_instans(strchunk)
+            # idata may be {} if the special toplevel rule in is_instans applied
+            # assert idata
+            if 'complete' in idata:
                 i = Instans(court=strchunk)
+            elif 'court' in idata and idata['court'] is not True:
+                i = Instans([chunk], court=idata['court'])
             else:
-                i = False
-                for sentence in split_sentences(strchunk):
-                    for r in (instans_matchers):
-                        m = r.match(sentence)
-                        if m:
-                            if 'court' in m.groupdict():
-                                i = Instans([chunk], court=m.groupdict()['court'])
-                            break
-                    if i:
-                        break
-                if not i:
-                    i = Instans([chunk])
-                    
+                i = Instans([chunk])
             return parser.make_children(i)
 
         def make_heading(parser):
