@@ -18,16 +18,23 @@ class TestDV(RepoTester):
 parametrize_repotester(TestDV)
 
 
-class TestDVUnit(unittest.TestCase):
-
+class TestDVParserBase(unittest.TestCase):
+    method = "is_instans"
     def t(self, want, testdata):
         p = dv.DV.get_parser()
         p.reader = fsmparser.Peekable([testdata])
         p._state_stack = ["notbody"] # to avoid the special fallback rule in is_instans
+        for f in p.recognizers:
+            if
+        else:
+            self.fail("
         f = p.recognizers[2]
-        assert f.__name__ == "is_instans", "The order of recognizers seem to have shifted, expected 'is_instans', got %s" % f.__name__
+        assert f.__name__ == self.method, "The order of recognizers seem to have shifted, expected 'is_instans', got %s" % f.__name__
         self.assertEqual(want, f(p))
+    
 
+
+class TestInstans(TestDVParserBase):
     # SHOULD work
     def test_plain_courtname(self):
         self.t({'court': 'Örebro tingsrätt', 'complete': True},
