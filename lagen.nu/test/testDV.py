@@ -19,22 +19,22 @@ parametrize_repotester(TestDV)
 
 
 class TestDVParserBase(unittest.TestCase):
-    method = "is_instans"
+    method = "none"
     def t(self, want, testdata):
         p = dv.DV.get_parser()
         p.reader = fsmparser.Peekable([testdata])
         p._state_stack = ["notbody"] # to avoid the special fallback rule in is_instans
         for f in p.recognizers:
-            if
+            if f.__name__ == self.method:
+                break
         else:
-            self.fail("
-        f = p.recognizers[2]
-        assert f.__name__ == self.method, "The order of recognizers seem to have shifted, expected 'is_instans', got %s" % f.__name__
+            self.fail("Could not find a recognizer function named %s" % self.method)
         self.assertEqual(want, f(p))
     
 
 
 class TestInstans(TestDVParserBase):
+    method = "is_instans"
     # SHOULD work
     def test_plain_courtname(self):
         self.t({'court': 'Örebro tingsrätt', 'complete': True},
@@ -272,4 +272,85 @@ class TestInstans(TestDVParserBase):
         self.t({'court': 'Migrationsöverdomstolen'},
                'Migrationsverket överklagade domen till '
                'Migrationsöverdomstolen och yrkade att ')
+        
+
+class TestDom(TestDVParserBase):
+    method = "is_dom"
+
+    def test_everything(self):
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "TR:n (ordf t f lagmannen Garenborg) anförde i dom d 15 sept 1980:")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HovR:n (hovrättsrådet Wedin, referent, adjungerade ledamoten Melchior samt nämndemännen Forslund och Arnåker) anförde i dom d 7 nov 1980:")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "Målet avgjordes efter huvudförhandling av HD (JustR:n Hult, Welamson, referent, Erik Nyman, Ehrner och Rydin), som beslöt följande dom: ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "TR:n (tingsdomaren Olsén, hovrättsrådet E Larsson och tingsfiskalen Svanberg) anförde i dom d 28 april 1977: : Till utvecklande av sin talan")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HovR:n (presidenten Rudholm, hovrättsråden Loheman, referent, och Grönvall samt adj led Malmqvist) fastställde i dom d 16 juni 1978 TR:ns dom. ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "Målet avgjordes efter huvudförhandling i HD (JustR:n Hult, Westerlind, Höglund, Sven Nyman och Jermsten, referent) som beslöt följande dom: ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HD (JustR:n Hult, Westerlind, Brundin, Hessler och Rydin, referent) fattade slutligt beslut i enlighet med betänkandet. ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "TR:n (lagmannen Matz, rådmannen Fogelberg och tingsfiskalen von Schéele) anförde i dom d 17 okt 1988: ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HovR:n (hovrättsråden Rehnberg och Mogren, referent samt adj led Landerholm) anförde i dom d 16 juni 1989: ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HD (JustR:n Vängby, Lars Å Beckman, Törnell och Danelius, referent) beslöt följande dom:")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "TR:n (lagmannen Ljunggren, t f rådmannen Krantz och tingsfiskalen Erdmann) anförde i dom d 31 okt 1988: Yrkanden m m")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HovR:n fd hovrättsrådet Jagander och tf hovrättsassessorn Månsson, referent) anförde i dom d 13 juni 1989:")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HD (JustR:n Vängby, Lars Å Beckman, Törnell och Danelius, referent) beslöt följande dom: ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "TR:n (rådmannen Nilsson) anförde i beslut d 20 mars 1989: M.E. är född d 21 sept 1967")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HovR:n (hovrättslagmannen Aspelin, hovrättsrådet Nilsson, referent, och adj led Ralf Larsson) anförde i beslut d 2 juni 1989: ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HD (JustR:n Jermsten, Gregow, Solerud, Lars Å Beckman och Törnell, referent) fattade slutligt beslut i enlighet med betänkandet.")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "TR:n (tre nämndemän) anförde i dom d 16 nov 1989 bl a: ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HovR:n (hovrättslagmannen Edling, referent, samt nämndemännen Larsson och Carlsson) anförde i dom d 27 mars 1990: ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HD (JustR:n Jermsten, Gregjow, Svensson, Munck och Danelius, referent) beslöt följande dom: ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "TR:n (rådmannen Nöteberg) anförde i dom d. 8 dec. 1997: Domskäl. Landstinget har i öppen upphandling enligt LOU ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HovR:n (tf. hovrättsassessorn Magnus Eriksson, referent) anförde i dom d. 22 dec. 1998: Domskäl. Utredningen här är i allt ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HD (JustR:n Magnusson, Nyström, Munck, Blomstrand och Lundius, referent) beslöt följande dom: Domskäl. Sedan Danderyds sjukhus infordrat anbud på vissa biltransporter")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HovR:n (hovrättslagmannen Laven samt hovrättsråden Similä, referent, och Lind) stadfäste i dom d. 3 juli 1998 den mellan M.B. och A.L. såsom målsägande...")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HD (JustR:n Nyström, Danelius, Blomstrand, Håstad, referent, och Lundius) fattade följande slutliga beslut: Skäl. T.L. har som grund")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HovR:n (hovrättslagmannen Eklycke samt hovrättsråden Hesser, referent, och Thuresson) anförde i dom d. 5 nov. 1998: Yrkanden m. m")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HD (JustR:n Magnusson, Lennander, referent, och Pripp) beslöt följande dom: Domskäl. Carin A. har i HD intagit samma")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "Tingsrätten (ordförande f.d. lagmannen Sture Stenström) meddelade dom den 22 januari 2009.")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "Hovrätten (hovrättslagmannen Jan Carrick , hovrättsrådet Johan Stenberg och två nämndemän) anförde i dom den 18 mars 2009: ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HD (justitieråden Per Virdesten, Lena Moore, Göran Lambertz och Johnny Herre, referent) meddelade den 3 januari 2011 följande dom:")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HD (justitieråden Dag Victor, Stefan Lindskog, referent, Göran Lambertz, Johnny Herre och Ingemar Persson) meddelade den 15 februari 2011 följande beslut: ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "Tingsrätten (ordförande rådmannen Sven Cavallin) anförde i dom den 15 september 2009 bl.a.: ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "Hovrätten (hovrättsråden Marianne Lejman och Torbjörn Nordenson, tf. hovrättsassessorn Martin Sunnqvist och två nämndemän) anförde i dom den 9 mars 2010")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "HD (justitieråden Dag Victor, Stefan Lindskog, Lena Moore, referent, Göran Lambertz och Johnny Herre) meddelade den 30 mars 2011 följande dom:")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "SAKEN")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "Kammarrätten i Stockholm, Migrationsöverdomstolen (2010-02-23, Schött, Råberg, referent och Brege Gefvert), yttrade: ")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "I sin dom avslog Förvaltningsrätten i Stockholm, migrationsdomstolen (2013- 03-25, ordförande van der Stad och tre nämndemän), A:s överklagande. Domstolen")
+        self.t({'court': '', 'date': date(2014,9,18), 'composition': {}},
+               "Kammarrätten i Stockholm, Migrationsöverdomstolen (2014-02-11, Jagander, Renman, referent, och Axelsson), yttrade: ")
+        
         
