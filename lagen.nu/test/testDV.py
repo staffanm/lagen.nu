@@ -149,16 +149,19 @@ class TestDVUnit(unittest.TestCase):
                'Carin A. (offentlig försvarare advokaten P.A.) överklagade och'
                ' yrkade i själva saken att HD skulle befria henne från ansvar')
 
+    # SHOULD work
     def test_hd_ansokan(self):
         self.t({'court': 'HD'},
                'S.W. anhöll i ansökan som inkom till HD d 14 okt 1980 om '
                'återställande av försutten tid')
 
+    # SHOULD work
     def test_hd_skrivelse(self):
         self.t({'court': 'HD'},
                'Kalmar tingsrätt anförde i en till HD den 1 november 2010 '
                'ställd skrivelse i huvudsak följande')
 
+    # SHOULD work 
     def test_hd_aklagare(self):
         self.t({'court': 'HD'},
                'Riksåklagaren väckte i HD åtal mot J.S, M.L och A.C för '
@@ -193,28 +196,31 @@ class TestDVUnit(unittest.TestCase):
                'I en ansökan hos Skatterättsnämnden om förhandsbesked '
                'anförde Advokat X AB och Advokat Y AB')
 
+    # SHOULD work
     def test_fr(self):
         self.t({'court': True},
                'Bolaget överklagade och yrkade att påförd avkastningsskatt '
                'skulle ...')
-        self.t({'court': 'länsrätten'},
+        self.t({'court': 'länsrätten', 'prevcourt': 'omsorgsnämnden'},
                'Makarna överklagade omsorgsnämndens beslut hos länsrätten och '
                'anförde bl.a. följande.')
-        self.t({'court': 'länsrätten'},
+        self.t({'court': 'länsrätten', 'prevcourt': 'Skatteverket'},
                'Bolaget överklagade Skatteverkets beslut hos länsrätten och '
                'yrkade')
 
+    # SHOULD work
     def test_kamr(self):
-        self.t({'court': 'kammarrättens'},
+        self.t({'court': 'kammarrätten'},
                'Bolaget överklagade och yrkade att kammarrätten skulle ändra '
                'länsrättens domar och undanröja')
         self.t({'court': 'kammarrätten'},
                'A-B.C. och A.C. överklagade och yrkade att kammarrätten, med '
                'ändring av länsrättens domar, skulle')
-        self.t({'court': 'kammmarrätten'},
+        self.t({'court': 'kammarrätten', 'prevcourt': 'länsrätten'},
                'Skatteverket överklagade länsrättens dom hos kammarrätten och '
                'yrkade i första hand ')
-        
+
+    # SHOULD work
     def test_hfd(self):
         self.t({'court': 'Regeringsrätten'},
                'I besvär hos Regeringsrätten yrkade X att förhandsbeskedet '
@@ -225,37 +231,38 @@ class TestDVUnit(unittest.TestCase):
                'Bolagen samt X och Y överklagade och yrkade att '
                'Regeringsrätten, med ändring av Skatterättsnämndens beslut, '
                'skulle')
-        self.t({'court': True},
+        self.t({'court': True, 'prevcourt': 'kammarrätten'},
                'A-B.C. och dödsboet efter A.C. överklagade kammarrättens '
                'domar och anförde bl.a. följande. ')
-        self.t({'court': True},
+        self.t({'court': True, 'prevcourt': 'kammarrätten'},
                'Skatteverket överklagade kammarrättens dom och yrkade att '
                'bolaget inte')
 
     def test_miv(self):
-        self.t({'court': 'Migrationsverket'},
+        self.t({'court': 'Migrationsverket', 'date': date(2006,2,14)},
                'Migrationsverket beslutade den 14 februari 2006 att avslå '
                'M A B A:s ansökan om uppehållstillstånd m.m. samt att avvisa '
                'honom')
-        self.t({'court': 'Migrationsverket'},
+        self.t({'court': 'Migrationsverket', 'date': date(2012, 8, 6)},
                 'I sitt beslut den 6 augusti 2012 avslog Migrationsverket '
                 'bl.a. A:s ansökan om uppehållstillstånd och avvisade honom '
                 'från Sverige')
 
     def test_migr(self):
-        self.t({'court': 'Migrationsverket'},
+        self.t({'court': True},
                'M A B A överklagade beslutet. Migrationsverket bestred... ')
-        self.t({'court': 'Migrationsverket'},
+        self.t({'court': 'Länsrätten i Skåne län, migrationsdomstolen',
+                'prevcourt': 'Migrationsverket'},
                'A överklagade Migrationsverkets beslut i ersättningsfrågan '
                'till Länsrätten i Skåne län, migrationsdomstolen, som i dom '
                'den 21 oktober 2009 (ordförande Geijer) tillerkände A '
                'ersättning')
 
     def test_miod(self):
-        self.t({'court': 'Migrationsverket'},
+        self.t({'court': 'Migrationsöverdomstolen'},
                'M A B A överklagade domen till Migrationsöverdomstolen. '
                'Migrationsverket bestred bifall till överklagandet.')
-        self.t({'court': 'Migrationsverket'},
+        self.t({'court': 'Migrationsöverdomstolen'},
                'Migrationsverket överklagade domen till '
                'Migrationsöverdomstolen och yrkade att ')
         

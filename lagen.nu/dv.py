@@ -1307,19 +1307,27 @@ class DV(SwedishLegalSource):
         # from basefile) we can select a subset of these regexes)
         rx = (
             ('(?P<court>Försäkringskassan|Migrationsverket) beslutade (därefter|) den (?P<date>\d+ \w+ \d+) att', 'match'),
-            ('(A överklagade beslutet till |)(?P<court>(Förvaltningsrätten|Länsrätten|Kammarrätten) i \w+(| län)(|, migrationsdomstolen|, Migrationsöverdomstolen)|Högsta förvaltningsdomstolen) \((?P<date>\d+-\d+-\d+), (?P<constitution>[\w ,]+)\)', 'match'),
+            ('((?P<karanden>[\w\.\(\)\- ]+) överklagade (beslutet|domen) till |)(?P<court>(Förvaltningsrätten|Länsrätten|Kammarrätten) i \w+(| län)(|, migrationsdomstolen|, Migrationsöverdomstolen)|Högsta förvaltningsdomstolen) \((?P<date>\d+-\d+-\d+), (?P<constitution>[\w ,]+)\)', 'match'),
             ('Allmän åklagare yrkade (.*)vid (?P<court>(([A-ZÅÄÖ][a-zåäö]+ )+)(TR|tingsrätt))', 'match'),
             ('stämning å (?P<svarande>.*) vid (?P<court>(([A-ZÅÄÖ][a-zåäö]+ )+)(TR|tingsrätt))', 'search'),
             ('ansökte vid (?P<court>(([A-ZÅÄÖ][a-zåäö]+ )+)(TR|tingsrätt)) om ', 'search'),
             ('Riksåklagaren väckte i (?P<court>HD|HovR:n (över|för) ([A-ZÅÄÖ][a-zåäö]+ )+|[A-ZÅÄÖ][a-zåäö]+ HovR) åtal', 'match'),
-            ('(?P<karande>[\w\. ]+) (fullföljde talan|överklagade) (|TR:ns dom.*)i (?P<court>HD|HovR:n (över|för) (Skåne och Blekinge|Västra Sverige|Nedre Norrland|Övre Norrland)|(Svea|Göta) HovR)', 'match'),
-            ('I (en |)ansökan hos (?P<court>\w+) om förhandsbesked', 'match'),
-            ('(?P<court>\w+) beslutade ([\w ]+) att', 'match'),
+            ('(?P<karande>[\w\.\(\)\- ]+) (fullföljde talan|överklagade) (|TR:ns dom.*)i (?P<court>HD|HovR:n (över|för) (Skåne och Blekinge|Västra Sverige|Nedre Norrland|Övre Norrland)|(Svea|Göta) HovR)', 'match'),
+            ('(?P<karanden>[\w\.\(\)\- ]+) fullföljde sin talan$', 'match'),
+            ('I (ansökan|en ansökan|besvär) hos (?P<court>\w+) (om förhandsbesked|yrkade)', 'match'),
+            ('(?P<court>\w+) beslutade (den (?P<date>\d+ \w+ \d+)|[\w ]+) att', 'match'),
             ('(?P<court>[\w ]+) (bedömde|vägrade) i (bistånds|)beslut (|den (?P<date>\d+ \w+ \d+))', 'match'),
-            ('(?P<karanden>[\w\.\(\) ]+) sökte revision och yrkade(, i första hand,|,|) att (?P<court>HD|)', 'match'),
-            ('(?P<karanden>[\w\.\(\) ]+) sökte revision$', 'match'),
-            ('(?P<karanden>[\w\.\(\) ]+) (anförde besvär|överklagade) och yrkade bifall till (sin talan i (?P<prevcourt>HovR:n|TR:n)|)', 'match'),
-            ('(?P<karanden>[\w\.\(\) ]+) överklagade (för egen del |)och yrkade (i själva saken |)att (?P<court>HD|HovR:n)', 'match'),
+            ('(?P<karanden>[\w\.\(\)\- ]+) sökte revision och yrkade(, i första hand,|,|) att (?P<court>HD|)', 'match'),
+            ('(?P<karanden>[\w\.\(\)\- ]+) sökte revision$', 'match'),
+            ('(?P<karanden>[\w\.\(\)\- ]+) (anförde besvär|överklagade) och yrkade bifall till (sin talan i (?P<prevcourt>HovR:n|TR:n)|)', 'match'),
+            ('(?P<karanden>[\w\.\(\)\- ]+) överklagade (för egen del |)och yrkade (i själva saken |)att (?P<court>HD|HovR:n|kammarrätten|Regeringsrätten|)', 'match'),
+            ('(?P<karanden>[\w\.\(\)\- ]+) överklagade (?P<prevcourt>\w+)s (beslut|dom)( i ersättningsfrågan|) (hos|till) (?P<court>[\w\, ]+)( och|, som)', 'match'),
+            ('(?P<karanden>[\w\.\(\)\- ]+) överklagade (beslutet|domen)$', 'match'),
+            ('(?P<karanden>[\w\.\(\)\- ]+) anhöll i ansökan som inkom till (?P<court>HD) d \d+ \w+ \d+', 'match'),
+            ('(?P<karanden>[\w\.\(\)\- ]+) anförde i en till (?P<court>HD) den \d+ \w+ \d+ ställd', 'match'),
+            ('(?P<karanden>[\w\.\(\)\- ]+) överklagade (?P<prevcourt>\w+)s (dom|domar)', 'match'),
+            ('(?P<karanden>[\w\.\(\)\- ]+) överklagade domen till (?P<court>\w+)($| och yrkade)', 'match'),
+            ('I sitt beslut den (?P<date>\d+ \w+ \d+) avslog (?P<court>\w+)', 'match'),
             
         )
         
@@ -1412,9 +1420,10 @@ class DV(SwedishLegalSource):
                 # (occassionally 3rd), searching more yields risk of
                 # false positives.
                 for sentence in split_sentences(strchunk)[:3]:
-                    for r in (re_instans_matchers):
+                    for (idx, r) in enumerate(re_instans_matchers):
                         m = r(sentence)
                         if m:
+                            # print("Matcher #%s out of %s succeeded on %s" % (idx+1, len(re_instans_matchers), sentence))
                             mg = m.groupdict()
                             if 'court' in mg and mg['court']:
                                 res['court'] = mg['court'].strip()
