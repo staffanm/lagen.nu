@@ -15,6 +15,7 @@ import zipfile
 from six import text_type as str
 from six.moves.urllib_parse import urljoin
 import tempfile
+from collections import defaultdict
 
 # 3rdparty libs
 import pkg_resources
@@ -97,6 +98,7 @@ class DVStore(DocumentStore):
     """Customized DocumentStore.
     """
 
+    
     def basefile_to_pathfrag(self, basefile):
         return basefile
 
@@ -231,7 +233,7 @@ class DV(SwedishLegalSource):
             util.robust_rename(mapfile + ".new", mapfile)
             log.info("uri.map created, %s entries" % cnt)
         else:
-            print("Not regenerating uri.map")
+            log.debug("Not regenerating uri.map")
             pass
         return super(cls, DV).relate_all_setup(config)
 
@@ -312,7 +314,7 @@ class DV(SwedishLegalSource):
         # specified OR if we've never downloaded before
         recurse = False
 
-        if self.config.force or not self.config.lastdownload or isinstance(self.config.lastdownload, type):
+        if self.config.force or not self.config.lastdownload:
             recurse = True
 
         self.downloadcount = 0  # number of files extracted from zip files
@@ -732,7 +734,7 @@ class DV(SwedishLegalSource):
             doc.meta.add((URIRef(doc.uri),
                           self.ns['rinfoex'].patchdescription,
                           Literal(patchdesc)))
-        doc.body = self.format_body(rawbody)
+        doc.body = self.format_body(rawbody, doc.basefile)
         return True
 
 
@@ -1266,7 +1268,7 @@ class DV(SwedishLegalSource):
         return refuri
 
 
-    def format_body(self, paras):
+    def format_body(self, paras, basefile):
         b = Body()
         # paras is typically a list of strings, but can be a list of
         # lists, where the innermost list consists of strings
@@ -1293,45 +1295,171 @@ class DV(SwedishLegalSource):
         
         # convert the unstructured list of Paragraphs to a
         # hierarchical tree of instances, domslut, domskäl, etc
-        b = self.structure_body(b)
+        b = self.structure_body(b, basefile)
         return b
 
-    def structure_body(self, paras):
-        return self.get_parser().parse(paras)
+    def structure_body(self, paras, basefile):
+        return self.get_parser(basefile).parse(paras)
 
     @staticmethod
-    def get_parser():
+    def get_parser(basefile):
         re_courtname = re.compile("^(Högsta domstolen|Hovrätten (över|för) [A-ZÅÄÖa-zåäö ]+|([A-ZÅÄÖ][a-zåäö]+ )(tingsrätt|hovrätt))$")
 
-        # note: depending on the final instance court (which we know
-        # from basefile) we can select a subset of these regexes)
+#         productions = {'karande': '..',
+#                        'court': '..',
+#                        'date': '..'}
+
+        # at parse time, initialize matchers
         rx = (
-            ('(?P<court>Försäkringskassan|Migrationsverket) beslutade (därefter|) den (?P<date>\d+ \w+ \d+) att', 'match'),
-            ('((?P<karanden>[\w\.\(\)\- ]+) överklagade (beslutet|domen) till |)(?P<court>(Förvaltningsrätten|Länsrätten|Kammarrätten) i \w+(| län)(|, migrationsdomstolen|, Migrationsöverdomstolen)|Högsta förvaltningsdomstolen) \((?P<date>\d+-\d+-\d+), (?P<constitution>[\w ,]+)\)', 'match'),
-            ('Allmän åklagare yrkade (.*)vid (?P<court>(([A-ZÅÄÖ][a-zåäö]+ )+)(TR|tingsrätt))', 'match'),
-            ('stämning å (?P<svarande>.*) vid (?P<court>(([A-ZÅÄÖ][a-zåäö]+ )+)(TR|tingsrätt))', 'search'),
-            ('ansökte vid (?P<court>(([A-ZÅÄÖ][a-zåäö]+ )+)(TR|tingsrätt)) om ', 'search'),
-            ('Riksåklagaren väckte i (?P<court>HD|HovR:n (över|för) ([A-ZÅÄÖ][a-zåäö]+ )+|[A-ZÅÄÖ][a-zåäö]+ HovR) åtal', 'match'),
-            ('(?P<karande>[\w\.\(\)\- ]+) (fullföljde talan|överklagade) (|TR:ns dom.*)i (?P<court>HD|HovR:n (över|för) (Skåne och Blekinge|Västra Sverige|Nedre Norrland|Övre Norrland)|(Svea|Göta) HovR)', 'match'),
-            ('(?P<karanden>[\w\.\(\)\- ]+) fullföljde sin talan$', 'match'),
-            ('I (ansökan|en ansökan|besvär) hos (?P<court>\w+) (om förhandsbesked|yrkade)', 'match'),
-            ('(?P<court>\w+) beslutade (den (?P<date>\d+ \w+ \d+)|[\w ]+) att', 'match'),
-            ('(?P<court>[\w ]+) (bedömde|vägrade) i (bistånds|)beslut (|den (?P<date>\d+ \w+ \d+))', 'match'),
-            ('(?P<karanden>[\w\.\(\)\- ]+) sökte revision och yrkade(, i första hand,|,|) att (?P<court>HD|)', 'match'),
-            ('(?P<karanden>[\w\.\(\)\- ]+) sökte revision$', 'match'),
-            ('(?P<karanden>[\w\.\(\)\- ]+) (anförde besvär|överklagade) och yrkade bifall till (sin talan i (?P<prevcourt>HovR:n|TR:n)|)', 'match'),
-            ('(?P<karanden>[\w\.\(\)\- ]+) överklagade (för egen del |)och yrkade (i själva saken |)att (?P<court>HD|HovR:n|kammarrätten|Regeringsrätten|)', 'match'),
-            ('(?P<karanden>[\w\.\(\)\- ]+) överklagade (?P<prevcourt>\w+)s (beslut|dom)( i ersättningsfrågan|) (hos|till) (?P<court>[\w\, ]+)( och|, som)', 'match'),
-            ('(?P<karanden>[\w\.\(\)\- ]+) överklagade (beslutet|domen)$', 'match'),
-            ('(?P<karanden>[\w\.\(\)\- ]+) anhöll i ansökan som inkom till (?P<court>HD) d \d+ \w+ \d+', 'match'),
-            ('(?P<karanden>[\w\.\(\)\- ]+) anförde i en till (?P<court>HD) den \d+ \w+ \d+ ställd', 'match'),
-            ('(?P<karanden>[\w\.\(\)\- ]+) överklagade (?P<prevcourt>\w+)s (dom|domar)', 'match'),
-            ('(?P<karanden>[\w\.\(\)\- ]+) överklagade domen till (?P<court>\w+)($| och yrkade)', 'match'),
-            ('I sitt beslut den (?P<date>\d+ \w+ \d+) avslog (?P<court>\w+)', 'match'),
-            
+            {'name': 'fr-överkl',
+             're': '((?P<karanden>[\w\.\(\)\- ]+) överklagade '
+                   '(beslutet|domen) till |)(?P<court>(Förvaltningsrätten|'
+                   'Länsrätten|Kammarrätten) i \w+(| län)'
+                   '(|, migrationsdomstolen|, Migrationsöverdomstolen)|'
+                   'Högsta förvaltningsdomstolen) \((?P<date>\d+-\d+-\d+), '
+                   '(?P<constitution>[\w ,]+)\)',
+             'method': 'match',
+             'type': ('dom',)},
+            {'name': 'tr-dom',
+             're': '(?P<court>TR|HovR):n \((?P<constitution>[\w ,]+)\) (anförde|fastställde) i dom d (?P<date>\d+ \w+ \d+)',
+             'method': 'match',
+             'type': ('dom',)},
+            {'name': 'hd-dom',
+             're': 'Målet avgjordes efter huvudförhandling (av|i) (?P<court>HD) \((?P<constitution>[\w: ,]+)\),? som',
+             'method': 'match',
+             'type': ('dom',)},
+            {'name': 'hd-fastst',
+             're': '(?P<court>HD) \((?P<constitution>[\w: ,]+)\) (beslöt|fattade slutligt beslut)',
+             'method': 'match',
+             'type': ('dom',)},
+            {'name': 'allm-åkl',
+             're': 'Allmän åklagare yrkade (.*)vid (?P<court>(([A-ZÅÄÖ]'
+                   '[a-zåäö]+ )+)(TR|tingsrätt))',
+             'method': 'match',
+             'type': ('instans',),
+             'court': ('HDO', 'HGO', 'HNN', 'HON', 'HSB', 'HSV', 'HVS')},
+            {'name': 'stämning',
+             're': 'stämning å (?P<svarande>.*) vid (?P<court>(([A-ZÅÄÖ]'
+                   '[a-zåäö]+ )+)(TR|tingsrätt))',
+             'method': 'search',
+             'type': ('instans',),
+             'court': ('HDO', 'HGO', 'HNN', 'HON', 'HSB', 'HSV', 'HVS')},
+            {'name': 'ansökan',
+             're': 'ansökte vid (?P<court>(([A-ZÅÄÖ][a-zåäö]+ )+)'
+                   '(TR|tingsrätt)) om ',
+             'method': 'search',
+             'type': ('instans',),
+             'court': ('HDO', 'HGO', 'HNN', 'HON', 'HSB', 'HSV', 'HVS')},
+            {'name': 'riksåkl',
+             're': 'Riksåklagaren väckte i (?P<court>HD|HovR:n (över|för) '
+                   '([A-ZÅÄÖ][a-zåäö]+ )+|[A-ZÅÄÖ][a-zåäö]+ HovR) åtal',
+                   'method': 'match',
+             'type': ('instans',),
+             'court': ('HDO', 'HGO', 'HNN', 'HON', 'HSB', 'HSV', 'HVS')},
+            {'name': 'tr-överkl',
+             're': '(?P<karande>[\w\.\(\)\- ]+) (fullföljde talan|'
+                   'överklagade) (|TR:ns dom.*)i (?P<court>HD|HovR:n '
+                   '(över|för) (Skåne och Blekinge|Västra Sverige|Nedre '
+                   'Norrland|Övre Norrland)|(Svea|Göta) HovR)',
+                   'method': 'match',
+             'type': ('instans',),
+             'court': ('HDO', 'HGO', 'HNN', 'HON', 'HSB', 'HSV', 'HVS')},
+            {'name': 'fullfölj-överkl',
+             're': '(?P<karanden>[\w\.\(\)\- ]+) fullföljde sin talan$',
+             'method': 'match',
+             'type': ('instans',)},
+            {'name': 'myndighetsansökan',
+             're': 'I (ansökan|en ansökan|besvär) hos (?P<court>\w+) '
+                   '(om förhandsbesked|yrkade)',
+             'method': 'match',
+             'type': ('instans',),
+             'court': ('REG', 'HFD')},
+            {'name': 'myndighetsbeslut',
+             're': '(?P<court>\w+) beslutade (därefter |)(den (?P<date>\d+ \w+ \d+)|'
+                   '[\w ]+) att',
+             'method': 'match',
+             'type': ('instans',),
+             'court': ('REG', 'HFD', 'MIG')},
+            {'name': 'myndighetsbeslut2',
+             're': '(?P<court>[\w ]+) (bedömde|vägrade) i (bistånds|)beslut'
+                   ' (|den (?P<date>\d+ \w+ \d+))',
+             'method': 'match',
+             'type': ('instans',),
+             'court': ('REG', 'HFD')},
+            {'name': 'hd-revision',
+             're': '(?P<karanden>[\w\.\(\)\- ]+) sökte revision och yrkade(,'
+                   'i första hand,|,|) att (?P<court>HD|)',
+             'method': 'match',
+             'type': ('instans',),
+             'court': ('HDO',)},
+            {'name': 'hd-revision2',
+             're': '(?P<karanden>[\w\.\(\)\- ]+) sökte revision$',
+             'method': 'match',
+             'type': ('instans',),
+             'court': 'HDO'},
+            {'name': 'överklag-bifall',
+             're': '(?P<karanden>[\w\.\(\)\- ]+) (anförde besvär|'
+                   'överklagade) och yrkade bifall till (sin talan i '
+                   '(?P<prevcourt>HovR:n|TR:n)|)',
+             'method': 'match',
+             'type': ('instans',),
+             'court': ('HDO', 'HGO', 'HNN', 'HON', 'HSB', 'HSV', 'HVS')},
+            {'name': 'överklag-2',
+             're': '(?P<karanden>[\w\.\(\)\- ]+) överklagade '
+                   '(för egen del |)och yrkade (i själva saken |)att '
+                   '(?P<court>HD|HovR:n|kammarrätten|Regeringsrätten|)',
+             'method': 'match',
+             'type': ('instans',)},
+            {'name': 'överklag-3',
+             're': '(?P<karanden>[\w\.\(\)\- ]+) överklagade (?P<prevcourt>'
+                   '\w+)s (beslut|dom)( i ersättningsfrågan|) (hos|till) '
+                   '(?P<court>[\w\, ]+)( och|, som)',
+             'method': 'match',
+             'type': ('instans',)},
+            {'name': 'överklag-4',
+             're': '(?P<karanden>[\w\.\(\)\- ]+) överklagade (beslutet|'
+                   'domen)$',
+             'method': 'match',
+             'type': ('instans',)},
+            {'name': 'hd-ansokan',
+             're': '(?P<karanden>[\w\.\(\)\- ]+) anhöll i ansökan som inkom '
+                   'till (?P<court>HD) d \d+ \w+ \d+',
+             'method': 'match',
+             'type': ('instans',),
+             'court': ('HDO',)},
+            {'name': 'hd-skrivelse',
+             're': '(?P<karanden>[\w\.\(\)\- ]+) anförde i en till '
+                   '(?P<court>HD) den \d+ \w+ \d+ ställd',
+             'method': 'match',
+             'type': ('instans',),
+             'court': ('HDO',)},
+            {'name': 'överklag-5',
+             're': '(?P<karanden>[\w\.\(\)\- ]+) överklagade '
+                   '(?P<prevcourt>\w+)s (dom|domar)',
+             'method': 'match',
+             'type': ('instans',)},
+            {'name': 'överklag-6',
+             're': '(?P<karanden>[\w\.\(\)\- ]+) överklagade domen till '
+                   '(?P<court>\w+)($| och yrkade)',
+             'method': 'match',
+             'type': ('instans',)},
+            {'name': 'myndighetsbeslut3',
+             're': 'I sitt beslut den (?P<date>\d+ \w+ \d+) avslog '
+                   '(?P<court>\w+)',
+             'method': 'match',
+             'type': ('instans',),
+             'court': ('REG', 'HFD', 'MIG')}
         )
-        
-        re_instans_matchers = [getattr(re.compile(x, re.UNICODE), method) for (x, method) in rx]
+        court = basefile.split("/")[0]
+        matchers = defaultdict(list)
+        matchersname = defaultdict(list)
+        for pat in rx:
+            if 'court' not in pat or court in pat['court']:
+                for t in pat['type']:
+                    # print("Adding pattern %s to %s" %  (pat['name'], t))
+                    matchers[t].append(getattr(re.compile(pat['re'], re.UNICODE), pat['method']))
+                    matchersname[t].append(pat['name'])
+            
             
         def is_delmal(parser):
             chunk = parser.reader.peek()
@@ -1367,11 +1495,14 @@ class DV(SwedishLegalSource):
             return strchunk == "Målet avgjordes efter föredragning."
             
         def is_dom(parser):
-            res = is_domskal(parser)
+            strchunk = str(parser.reader.peek())
+            res = analyze_dom(strchunk)
             return res
 
         def is_domskal(parser):
             strchunk = str(parser.reader.peek())
+            if strchunk.startswith("Domskäl. "):
+                return True
             if strchunk == "Skäl":
                 return True
             if re.match("(Tingsrätten|TR[:\.]n|Hovrätten|HD|Högsta förvaltningsdomstolen) \([^)]*\) (meddelade|anförde|fastställde|yttrade)", strchunk):
@@ -1416,21 +1547,28 @@ class DV(SwedishLegalSource):
                 return res
             else:
                 # case 2: common wording patterns indicating new
-                # instance the needed sentence is usually 1st or 2nd
+                # instance
+                # "H.T. sökte revision och yrkade att HD måtte fastställa" =>
+                # <Instans name="HD"><str>H.T. sökte revision och yrkade att <PredicateSubject rel="HD" uri="http://lagen.nu/org/2008/hogsta-domstolen/">HD>/PredicateSubject>
+                # <div class="instans" rel="dc:creator" href="..."
+
+                
+                # the needed sentence is usually 1st or 2nd
                 # (occassionally 3rd), searching more yields risk of
                 # false positives.
+                
                 for sentence in split_sentences(strchunk)[:3]:
-                    for (idx, r) in enumerate(re_instans_matchers):
+                    for (r, rname) in zip(matchers['instans'], matchersname['instans']):
                         m = r(sentence)
                         if m:
-                            # print("Matcher #%s out of %s succeeded on %s" % (idx+1, len(re_instans_matchers), sentence))
+                            # print("Matcher '%s' succeeded on '%s'" % (rname, sentence))
                             mg = m.groupdict()
                             if 'court' in mg and mg['court']:
                                 res['court'] = mg['court'].strip()
                             else:
                                 res['court'] = True
-                            if 'prevcourt' in mg and mg['prevcourt']:
-                                res['prevcourt'] = mg['prevcourt'].strip()
+                            #if 'prevcourt' in mg and mg['prevcourt']:
+                            #    res['prevcourt'] = mg['prevcourt'].strip()
                             if 'date' in mg and mg['date']:
                                 parse_swed = DV().parse_swedish_date
                                 parse_iso = DV().parse_iso_date
@@ -1438,9 +1576,30 @@ class DV(SwedishLegalSource):
                                     res['date'] = parse_swed(mg['date'])
                                 except ValueError:
                                     res['date'] = parse_iso(mg['date'])
-                            if 'constitution' in mg:
-                                res['constitution'] = parse_constitution(mg['constitution'])
                             return res
+            return res
+
+        def analyze_dom(strchunk):
+            res = {}
+            # probably only the 1st sentence is interesting
+            for sentence in split_sentences(strchunk)[:1]:
+                for (r, rname) in zip(matchers['dom'], matchersname['dom']):
+                    m = r(sentence)
+                    if m:
+                        # print("Matcher '%s' succeeded on '%s'" % (rname, sentence))
+                        mg = m.groupdict()
+                        if 'court' in mg and mg['court']:
+                            res['court'] = mg['court'].strip()
+                        if 'date' in mg and mg['date']:
+                            parse_swed = DV().parse_swedish_date
+                            parse_iso = DV().parse_iso_date
+                            try:
+                                res['date'] = parse_swed(mg['date'])
+                            except ValueError:
+                                res['date'] = parse_iso(mg['date'])
+                        #if 'constitution' in mg:
+                        #    res['constitution'] = parse_constitution(mg['constitution'])
+                        return res
             return res
 
         def parse_constitution(strchunk):
@@ -1448,16 +1607,25 @@ class DV(SwedishLegalSource):
             for thing in strchunk.split(", "):
                 if thing in ("ordförande", "referent"):
                     res[-1]['position'] = thing
-                elif thing.startswith("ordförande "):
+                elif thing.startswith("ordförande ") or thing.startswith("ordf "):
                     pos, name = thing.split(" ", 1)
-                    res.append({'name': name,
-                                'position': pos})
+                    if name.startswith("t f lagmannen"):
+                        title, name = name[:13], name[14:]
+                    elif name.startswith("hovrättsrådet"):
+                        title, name = name[:13], name[14:]
+                    else:
+                        title = None
+                    r = {'name': name,
+                         'position': pos,
+                         'title': title}
+                    if 'title' not in r:
+                        del r['title']
+                    res.append(r)
                 else:
-                    res.append({'name': thing})
+                    name = thing
+                    res.append({'name': name})
+            # also filter nulls
             return res
-
-        def analyze_dom(strchunk):
-            return False
 
         # FIXME: This and make_paragraph ought to be expressed as
         # generic functions in the ferenda.fsmparser module
@@ -1497,6 +1665,8 @@ class DV(SwedishLegalSource):
 
         @newstate('dom')
         def make_dom(parser):
+            ddata = analyze_instans(str(parser.reader.next()))
+            # fix date, constitution etc
             d = Dom(avgorandedatum=None, malnr=None)
             return parser.make_children(d)
 

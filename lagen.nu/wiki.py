@@ -12,6 +12,7 @@ from six import binary_type as bytes
 # 3rdparty
 from lxml import etree
 from rdflib import Namespace, URIRef, Literal
+import requests
 
 # mine
 from ferenda import DocumentRepository, DocumentStore
@@ -85,9 +86,11 @@ class MediaWiki(DocumentRepository):
             return self.download_single(basefile)
 
         if self.config.mediawikidump:
-            # resp = requests.get(self.config.mediawikidump)
-            # xml = etree.parse(resp.content)
+            resp = requests.get(self.config.mediawikidump)
             xmldumppath = self.store.path('dump', 'downloaded', '.xml')
+            with self.store._open(xmldumppath, mode="wb") as fp:
+                fp.write(resp.content)
+            # xml = etree.parse(resp.content)
             xml = etree.parse(xmldumppath)
         else:
             raise ConfigurationError("config.mediawikidump not set")

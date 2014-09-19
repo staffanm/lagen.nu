@@ -410,8 +410,12 @@ class SFS(Trips):
         # NOTE: this runs the makeimages function every time a SFS
         # repo is created, not just when self.config.imgfiles is
         # accessed. But with caching maybe that's ok?
-        self.config.imgfiles = self._makeimages()
-
+        #
+        # use set() instead of __setattr__ to avoid making a mess of
+        # the cofig file
+        #
+        # self.config.imgfiles = self._makeimages()
+        LayeredConfig.set(self.config, 'imgfiles', self._makeimages())
     def _makeimages(self):
         # FIXME: make sure a suitable font exists
         font = "Helvetica" 
@@ -508,7 +512,7 @@ class SFS(Trips):
             x) for x in self.config.next_sfsnr.split(":")]
         done = False
         revisit = []
-        if hasattr(self.config, 'revisit'):
+        if hasattr(self.config, 'revisit') and self.config.revisit:
             last_revisit = self.config.revisit
             for wanted_sfs_nr in last_revisit:
                 self.log.info('Revisiting %s' % wanted_sfs_nr)
