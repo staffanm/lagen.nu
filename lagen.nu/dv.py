@@ -14,6 +14,7 @@ import re
 import zipfile
 from six import text_type as str
 from six.moves.urllib_parse import urljoin
+from six import BytesIO
 import tempfile
 from collections import defaultdict
 
@@ -761,7 +762,7 @@ class DV(SwedishLegalSource):
         iterator = soup.find_all(ptag)
         if coll == "HDO":
             # keep in sync w extract_notis
-            re_notisstart = re.compile("(?:Den (?P<avgdatum>\d+):[ae].\s+|)(?P<ordinal>\d+)\. ?\((?P<malnr>\w \d+-\d+)\)", flags=re.UNICODE)
+            re_notisstart = re.compile("(?:Den (?P<avgdatum>\d+):[ae].\s+|)(?P<ordinal>\d+)\.[ \xa0]*\((?P<malnr>\w[ \xa0]\d+-\d+)\)", flags=re.UNICODE)
             re_avgdatum = re_malnr = re_notisstart
             re_lagrum = re_sokord = None
             # headers consist of the first two chunks (month, then
@@ -1801,7 +1802,15 @@ class DV(SwedishLegalSource):
     def _simplify_ooxml(self, filename, pretty_print=True):
         # simplify the horrendous mess that is OOXML through simplify-ooxml.xsl
         with open(filename, "rb") as fp:
-            intree = etree.parse(fp)
+            data = fp.read()
+            # in some rare cases, the value \xc2\x81 (utf-8 for
+            # control char) is used where "Å" (\xc3\x85) should be
+            # used.
+            if b"\xc2\x81" in data:
+                self.log.warning("Working around control char x81 in text data")
+                data = data.replace(b"\xc2\x81", b"\xc3\x85")
+            intree = etree.parse(BytesIO(data))
+            # intree = etree.parse(fp)
         fp = pkg_resources.resource_stream('ferenda', "res/xsl/simplify-ooxml.xsl")
         transform = etree.XSLT(etree.parse(fp))
         fp.close()
