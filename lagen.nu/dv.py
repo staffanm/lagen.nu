@@ -1398,6 +1398,11 @@ class DV(SwedishLegalSource):
              'method': 'match',
              'type': ('instans',),
              'court': 'HDO'},
+            {'name': 'hd-revision3',
+             're': '(?P<karanden>[\w\.\(\)\- ]+) sökte revision och framställde samma yrkanden',
+             'method': 'match',
+             'type': ('instans',),
+             'court': 'HDO'},
             {'name': 'överklag-bifall',
              're': '(?P<karanden>[\w\.\(\)\- ]+) (anförde besvär|'
                    'överklagade) och yrkade bifall till (sin talan i '
@@ -1464,7 +1469,7 @@ class DV(SwedishLegalSource):
             
         def is_delmal(parser):
             chunk = parser.reader.peek()
-            return str(chunk) in ("I", "II", "III")
+            return str(chunk) in ("I", "II", "III", "IV")
 
         def is_instans(parser, chunk=None):
             """Determines whether the current position starts a new instans part of the report.
@@ -1742,7 +1747,13 @@ class DV(SwedishLegalSource):
                           is_tillagg,
                           is_heading,
                           is_paragraph)
-        commonstates = ("body", "delmal", "instans", "domskal", "domslut", "betankande", "skiljaktig", "tillagg")
+        # "dom" should not really be a commonstate (it should
+        # theoretically alwawys be followed by domskal or maybe
+        # domslut) but in some cases, the domskal merges with the
+        # start of dom in such a way that we can't transition into
+        # domskal right away (eg HovR:s dom in HDO/B10-86_1 and prob
+        # countless others)
+        commonstates = ("body", "delmal", "instans", "dom", "domskal", "domslut", "betankande", "skiljaktig", "tillagg")
         
         p.set_transitions({
             ("body", is_delmal): (make_delmal, "delmal"),
@@ -1777,6 +1788,7 @@ class DV(SwedishLegalSource):
             ("domskal", is_delmal): (False, None), 
             ("domskal", is_domslut): (False, None),
             ("domskal", is_instans): (False, None), 
+            ("domslut", is_delmal): (False, None), 
             ("domslut", is_instans): (False, None),
             ("domslut", is_domskal): (False, None),
             ("domslut", is_skiljaktig): (False, None), 

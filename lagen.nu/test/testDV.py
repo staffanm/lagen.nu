@@ -112,18 +112,18 @@ class TestInstans(TestDVParserBase):
 
     # SHOULD work
     def test_hd(self):
-        self.t({'court': True},  # True?
+        self.t({'court': True},
                'B.A. sökte revision och yrkade, att gärningen måtte bedömas')
         self.t({'court': 'HD'},
                'H.T. (ombud advokaten O.R.) sökte revision och yrkade att HD '
                'måtte fastställa TR:ns dom i huvudsaken')
-        self.t({'court': True},  # True?
+        self.t({'court': True},
                'Såväl Broschyrbolaget (ombud advokaten G.R.) som Sperlingsholm'
                ' sökte revision. ')
-        self.t({'court': True},  # True?
+        self.t({'court': True},
                'H.A. och M.E. (ombud för båda advokaten G.N.) anförde besvär '
                'och yrkade bifall till adoptionsansökningen.')
-        self.t({'court': True},  # True?
+        self.t({'court': True},
                'Lillebil (ombud advokaten M.L.) överklagade och yrkade bifall '
                'till sin talan i HovR:n. ')
         self.t({'court': 'HD'},
@@ -132,6 +132,8 @@ class TestInstans(TestDVParserBase):
         self.t({'court': 'HD'},
                'Carin A. (offentlig försvarare advokaten P.A.) överklagade och'
                ' yrkade i själva saken att HD skulle befria henne från ansvar')
+        self.t({'court': True},
+               'I.S sökte revision och framställde samma yrkanden som i HovR:n.')
 
     # SHOULD work
     def test_hd_ansokan(self):
