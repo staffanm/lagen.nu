@@ -1304,7 +1304,7 @@ class DV(SwedishLegalSource):
 
     @staticmethod
     def get_parser(basefile):
-        re_courtname = re.compile("^(Högsta domstolen|Hovrätten (över|för) [A-ZÅÄÖa-zåäö ]+|([A-ZÅÄÖ][a-zåäö]+ )(tingsrätt|hovrätt))$")
+        re_courtname = re.compile("^(Högsta domstolen|Hovrätten (över|för) [A-ZÅÄÖa-zåäö ]+|([A-ZÅÄÖ][a-zåäö]+ )(tingsrätt|hovrätt))(|, mark- och miljödomstolen|, Mark- och miljööverdomstolen)$")
 
 #         productions = {'karande': '..',
 #                        'court': '..',
@@ -1320,19 +1320,38 @@ class DV(SwedishLegalSource):
                    'Högsta förvaltningsdomstolen) \((?P<date>\d+-\d+-\d+), '
                    '(?P<constitution>[\w ,]+)\)',
              'method': 'match',
-             'type': ('dom',)},
+             'type': ('dom',),
+             'court': ('REG', 'HFD', 'MIG')},
             {'name': 'tr-dom',
-             're': '(?P<court>TR|HovR):n \((?P<constitution>[\w ,]+)\) (anförde|fastställde) i dom d (?P<date>\d+ \w+ \d+)',
+             're': '(?P<court>TR:n|Tingsrätten|HovR:n|Hovrätten|Mark- och miljödomstolen) \((?P<constitution>[\w\. ,]+)\) (anförde|fastställde|stadfäste|meddelade) (i |)(dom|beslut) (d\.|d|den) (?P<date>\d+ \w+\.? \d+)',
              'method': 'match',
-             'type': ('dom',)},
+             'type': ('dom',),
+             'court': ('HDO', 'HGO', 'HNN', 'HON', 'HSB', 'HSV', 'HVS')},
             {'name': 'hd-dom',
-             're': 'Målet avgjordes efter huvudförhandling (av|i) (?P<court>HD) \((?P<constitution>[\w: ,]+)\),? som',
+             're': 'Målet avgjordes efter huvudförhandling (av|i) (?P<court>HD) \((?P<constitution>[\w:\. ,]+)\),? som',
              'method': 'match',
-             'type': ('dom',)},
+             'type': ('dom',),
+             'court': ('HDO',)},
+            {'name': 'hd-dom2',
+             're': '(?P<court>HD) \((?P<constitution>[\w:\. ,]+)\) meddelade den (?P<date>\d+ \w+ \d+) följande',
+             'method': 'match',
+             'type': ('dom',),
+             'court': ('HDO',)},
             {'name': 'hd-fastst',
-             're': '(?P<court>HD) \((?P<constitution>[\w: ,]+)\) (beslöt|fattade slutligt beslut)',
+             're': '(?P<court>HD) \((?P<constitution>[\w:\. ,]+)\) (beslöt|fattade (slutligt|följande slutliga) beslut)',
              'method': 'match',
              'type': ('dom',)},
+
+            {'name': 'mig-dom',
+             're': '(?P<court>Kammarrätten i Stockholm, Migrationsöverdomstolen)  \((?P<date>\d+-\d+-\d+), (?P<constitution>[\w\. ,]+)\)',
+             'method': 'match',
+             'type': ('dom',),
+             'court': ('MIG',)},
+            {'name': 'mig-dom-alt',
+             're': 'I sin dom avslog (?P<court>Förvaltningsrätten i Stockholm, migrationsdomstolen) \((?P<date>\d+- ?\d+-\d+), (?P<constitution>[\w\. ,]+)\)',
+             'method': 'match',
+             'type': ('dom',),
+             'court': ('MIG',)},
             {'name': 'allm-åkl',
              're': 'Allmän åklagare yrkade (.*)vid (?P<court>(([A-ZÅÄÖ]'
                    '[a-zåäö]+ )+)(TR|tingsrätt))',
@@ -1424,7 +1443,7 @@ class DV(SwedishLegalSource):
              'type': ('instans',)},
             {'name': 'överklag-4',
              're': '(?P<karanden>[\w\.\(\)\- ]+) överklagade (beslutet|'
-                   'domen)$',
+                   'domen)( och|$)',
              'method': 'match',
              'type': ('instans',)},
             {'name': 'hd-ansokan',
@@ -1468,9 +1487,15 @@ class DV(SwedishLegalSource):
             
             
         def is_delmal(parser):
-            chunk = parser.reader.peek()
-            return str(chunk) in ("I", "II", "III", "IV")
-
+            # should handle "IV" and "I (UM1001-08)"
+            strchunk = str(parser.reader.peek())
+            if (len(strchunk) < 20 and
+                not strchunk.endswith(".") and
+                strchunk.split(" ",1)[0] in ("I", "II", "III", "IV")):
+                return {'id': strchunk.split(" ",1)[0]}
+            else:
+                return {}
+                
         def is_instans(parser, chunk=None):
             """Determines whether the current position starts a new instans part of the report.
 
@@ -1507,9 +1532,7 @@ class DV(SwedishLegalSource):
 
         def is_domskal(parser):
             strchunk = str(parser.reader.peek())
-            if strchunk.startswith("Domskäl. "):
-                return True
-            if strchunk == "Skäl":
+            if re.match("(Skäl|Domskäl|HovR:ns domskäl|Hovrättens domskäl)(\. |$)", strchunk):
                 return True
             if re.match("(Tingsrätten|TR[:\.]n|Hovrätten|HD|Högsta förvaltningsdomstolen) \([^)]*\) (meddelade|anförde|fastställde|yttrade)", strchunk):
                 return True
@@ -1587,6 +1610,9 @@ class DV(SwedishLegalSource):
 
         def analyze_dom(strchunk):
             res = {}
+            # special case for "referat" who are nothing but straight verdict documents.
+            if strchunk.strip() == "SAKEN":
+                return {'court': True}
             # probably only the 1st sentence is interesting
             for sentence in split_sentences(strchunk)[:1]:
                 for (r, rname) in zip(matchers['dom'], matchersname['dom']):
@@ -1671,9 +1697,11 @@ class DV(SwedishLegalSource):
 
         @newstate('dom')
         def make_dom(parser):
-            ddata = analyze_instans(str(parser.reader.next()))
-            # fix date, constitution etc
-            d = Dom(avgorandedatum=None, malnr=None)
+            # fix date, constitution etc. Note peek() instead of read() --
+            # this is so is_domskal can have a chance at the same data
+            ddata = analyze_dom(str(parser.reader.peek()))
+            d = Dom(avgorandedatum=ddata.get('date'),
+                    malnr=ddata.get('caseid'))
             return parser.make_children(d)
 
         @newstate('domskal')
@@ -1763,8 +1791,8 @@ class DV(SwedishLegalSource):
             ("delmal", is_delmal): (False, None),
             ("delmal", is_endmeta): (False, None),
             ("instans", is_betankande): (make_betankande, "betankande"),
-            ("instans", is_dom): (make_dom, "dom"),
             ("instans", is_domslut): (make_domslut, "domslut"),
+            ("instans", is_dom): (make_dom, "dom"),
             ("instans", is_instans): (False, None),
             ("instans", is_skiljaktig): (make_skiljaktig, "skiljaktig"),
             ("instans", is_tillagg): (make_tillagg, "tillagg"),
