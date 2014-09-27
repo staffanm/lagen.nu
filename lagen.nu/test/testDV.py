@@ -117,7 +117,11 @@ class TestInstans(TestDVParserBase):
         self.t({'court': 'HovR:n för Nedre Norrland'},
                'M.B. överklagade TR:ns dom endast i skadeståndsdelen i HovR:n '
                'för Nedre Norrland, som d. 23 juni 1998 förelade ')
-
+        self.t({'court': 'Göta hovrätt'},
+               "M.J. överklagade i Göta hovrätt och yrkade, såvitt nu är i "
+               "fråga, att hovrätten skulle avvisa åtalet och undanröja "
+               "tingsrättens dom.")
+        
     # SHOULD work
     def test_hd(self):
         self.t({'court': True},
@@ -326,7 +330,7 @@ class TestDom(TestDVParserBase):
         self.t({'court': 'HD'},
                'Målet avgjordes efter huvudförhandling i HD (JustR:n Hult, '
                'Westerlind, Höglund, Sven Nyman och Jermsten, referent) som '
-              'beslöt följande dom: ')
+               'beslöt följande dom: ')
         self.t({'court': 'HD'},
                'HD (JustR:n Hult, Westerlind, Brundin, Hessler och Rydin, '
                'referent) fattade slutligt beslut i enlighet med betänkandet.')
@@ -445,8 +449,18 @@ class TestDom(TestDVParserBase):
                "fastighetsrådet Torsten Sojdelius) anförde i dom den 12 "
                "oktober 2011:")
         self.t({'court': 'Hovrätten', 'date': date(2009, 10, 30)},
-               "Hovrätten (hovrättsråden Lena Bång och Lennart Östblom, referent, samt hovrättsassessorn Ingrid Hansen) anförde följande i beslut den 30 oktober 2009.")
-               
+               "Hovrätten (hovrättsråden Lena Bång och Lennart Östblom, "
+               "referent, samt hovrättsassessorn Ingrid Hansen) anförde "
+               "följande i beslut den 30 oktober 2009.")
+        self.t({'court': 'Tingsrätten', 'date': date(2004, 5, 19)},
+               "Tingsrätten (ordförande tingsfiskalen Anne-Therése Byström) "
+               "fastställde i beslut i dom den 19 maj 2004 att ersättning")
+        self.t({'court': 'Hovrätten', 'date': date(2004, 12, 9)},
+               "Hovrätten (hovrättslagmannen Göran Ewerlöf, hovrättsrådet "
+               "Lars-Åke Olvall, referent, tf. hovrättsassessorn Elisabeth "
+               "Rune och två nämndemän) anförde följande i dom den 9 "
+               "december 2004.")
+
 class TestDelmal(TestDVParserBase):
     method = "is_delmal"
     

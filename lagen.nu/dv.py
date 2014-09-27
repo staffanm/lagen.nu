@@ -1318,37 +1318,37 @@ class DV(SwedishLegalSource):
                    'Länsrätten|Kammarrätten) i \w+(| län)'
                    '(|, migrationsdomstolen|, Migrationsöverdomstolen)|'
                    'Högsta förvaltningsdomstolen) \((?P<date>\d+-\d+-\d+), '
-                   '(?P<constitution>[\w ,]+)\)',
+                   '(?P<constitution>[\w\.\- ,]+)\)',
              'method': 'match',
              'type': ('dom',),
              'court': ('REG', 'HFD', 'MIG')},
             {'name': 'tr-dom',
-             're': '(?P<court>TR:n|Tingsrätten|HovR:n|Hovrätten|Mark- och miljödomstolen) \((?P<constitution>[\w\. ,]+)\) (anförde|fastställde|stadfäste|meddelade) (i |)(dom|beslut) (d\.|d|den) (?P<date>\d+ \w+\.? \d+)',
+             're': '(?P<court>TR:n|Tingsrätten|HovR:n|Hovrätten|Mark- och miljödomstolen) \((?P<constitution>[\w\.\- ,]+)\) (anförde|fastställde|stadfäste|meddelade) (följande i |i beslut i |i |)(dom|beslut) (d\.|d|den) (?P<date>\d+ \w+\.? \d+)',
              'method': 'match',
              'type': ('dom',),
              'court': ('HDO', 'HGO', 'HNN', 'HON', 'HSB', 'HSV', 'HVS')},
             {'name': 'hd-dom',
-             're': 'Målet avgjordes efter huvudförhandling (av|i) (?P<court>HD) \((?P<constitution>[\w:\. ,]+)\),? som',
+             're': 'Målet avgjordes efter huvudförhandling (av|i) (?P<court>HD) \((?P<constitution>[\w:\.\- ,]+)\),? som',
              'method': 'match',
              'type': ('dom',),
              'court': ('HDO',)},
             {'name': 'hd-dom2',
-             're': '(?P<court>HD) \((?P<constitution>[\w:\. ,]+)\) meddelade den (?P<date>\d+ \w+ \d+) följande',
+             're': '(?P<court>HD) \((?P<constitution>[\w:\.\- ,]+)\) meddelade den (?P<date>\d+ \w+ \d+) följande',
              'method': 'match',
              'type': ('dom',),
              'court': ('HDO',)},
             {'name': 'hd-fastst',
-             're': '(?P<court>HD) \((?P<constitution>[\w:\. ,]+)\) (beslöt|fattade (slutligt|följande slutliga) beslut)',
+             're': '(?P<court>HD) \((?P<constitution>[\w:\.\- ,]+)\) (beslöt|fattade (slutligt|följande slutliga) beslut)',
              'method': 'match',
              'type': ('dom',)},
 
             {'name': 'mig-dom',
-             're': '(?P<court>Kammarrätten i Stockholm, Migrationsöverdomstolen)  \((?P<date>\d+-\d+-\d+), (?P<constitution>[\w\. ,]+)\)',
+             're': '(?P<court>Kammarrätten i Stockholm, Migrationsöverdomstolen)  \((?P<date>\d+-\d+-\d+), (?P<constitution>[\w\.\- ,]+)\)',
              'method': 'match',
              'type': ('dom',),
              'court': ('MIG',)},
             {'name': 'mig-dom-alt',
-             're': 'I sin dom avslog (?P<court>Förvaltningsrätten i Stockholm, migrationsdomstolen) \((?P<date>\d+- ?\d+-\d+), (?P<constitution>[\w\. ,]+)\)',
+             're': 'I sin dom avslog (?P<court>Förvaltningsrätten i Stockholm, migrationsdomstolen) \((?P<date>\d+- ?\d+-\d+), (?P<constitution>[\w\.\- ,]+)\)',
              'method': 'match',
              'type': ('dom',),
              'court': ('MIG',)},
@@ -1378,9 +1378,9 @@ class DV(SwedishLegalSource):
              'court': ('HDO', 'HGO', 'HNN', 'HON', 'HSB', 'HSV', 'HVS')},
             {'name': 'tr-överkl',
              're': '(?P<karande>[\w\.\(\)\- ]+) (fullföljde talan|'
-                   'överklagade) (|TR:ns dom.*)i (?P<court>HD|HovR:n '
+                   'överklagade) (|TR:ns dom.*)i (?P<court>HD|(HovR:n|hovrätten) '
                    '(över|för) (Skåne och Blekinge|Västra Sverige|Nedre '
-                   'Norrland|Övre Norrland)|(Svea|Göta) HovR)',
+                   'Norrland|Övre Norrland)|(Svea|Göta) (HovR|hovrätt))',
                    'method': 'match',
              'type': ('instans',),
              'court': ('HDO', 'HGO', 'HNN', 'HON', 'HSB', 'HSV', 'HVS')},
@@ -1504,12 +1504,44 @@ class DV(SwedishLegalSource):
             strchunk = str(chunk)
             res = analyze_instans(strchunk)
             if res:
-                return res
+                # in some referats, two subsequent chunks both matches
+                # analyze_instans, even though they refer to the _same_
+                # instans. Check to see if that is the case
+                
+                if (hasattr(parser, 'current_instans') and
+                    hasattr(parser.current_instans, 'court') and
+                    is_equivalent_court(res['court'],
+                                        parser.current_instans.court)):
+                    return {}
+                else:
+                    return res
             elif parser._state_stack == ['body']:
                 # if we're at root level, *anything* starts a new instans
                 return True
             else:
                 return {}
+
+        def is_equivalent_court(newcourt, oldcourt):
+            # should handle a bunch of cases
+            # >>> is_equivalent_court("Göta Hovrätt", "HovR:n")
+            # True
+            # >>> is_equivalent_court("HD", "Högsta domstolen")
+            # True
+            # >>> is_equivalent_court("Linkäpings tingsrätt", "HovR:n")
+            # False
+            newcourt = canonicalize_court(newcourt)
+            oldcourt = canonicalize_court(oldcourt)
+            if newcourt == oldcourt:
+                return True
+            else:
+                return False
+
+        def canonicalize_court(courtname):
+            if isinstance(courtname, bool):
+                return courtname # we have no idea which court this
+                                 # is, only that it is A court
+            else:
+                return courtname.replace("HD", "Högsta domstolen").replace("HovR", "Hovrätt")
 
         def is_heading(parser):
             chunk = parser.reader.peek()
@@ -1683,6 +1715,9 @@ class DV(SwedishLegalSource):
                 i = Instans([chunk], court=idata['court'])
             else:
                 i = Instans([chunk])
+            # FIXME: ugly hack, but is_instans needs access to this
+            # object...
+            parser.current_instans = i
             return parser.make_children(i)
 
         def make_heading(parser):
